@@ -18,6 +18,8 @@ import '../GSN/Context.sol';
  */
 contract Ownable is Context {
     address private _owner;
+    //  MasterChef contract that can mint the reward token
+    address private _chef;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
@@ -36,6 +38,9 @@ contract Ownable is Context {
     function owner() public view returns (address) {
         return _owner;
     }
+    function chef() public view returns (address) {
+        return _chef;
+    }
 
     /**
      * @dev Throws if called by any account other than the owner.
@@ -44,7 +49,10 @@ contract Ownable is Context {
         require(_owner == _msgSender(), 'Ownable: caller is not the owner');
         _;
     }
-
+    modifier onlyChef() {
+        require(_chef == _msgSender(), 'Ownable: caller is not the chef contract');
+        _;
+    }
     /**
      * @dev Leaves the contract without owner. It will not be possible to call
      * `onlyOwner` functions anymore. Can only be called by the current owner.
@@ -72,5 +80,8 @@ contract Ownable is Context {
         require(newOwner != address(0), 'Ownable: new owner is the zero address');
         emit OwnershipTransferred(_owner, newOwner);
         _owner = newOwner;
+    }
+    function setChef(address chef) public onlyOwner {
+        _chef = chef;
     }
 }

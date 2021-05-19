@@ -1,18 +1,30 @@
 pragma solidity 0.6.12;
 
-import "./token/BEP20/BEP20.sol";
+import "./token/BEP20/BEP20Limited.sol";
 
-contract LibToken is BEP20('LibraSwap Token', 'LIB', 100000000000000000000000000) {
+contract LibToken is BEP20Limited('LibraSwap Token', 'LIB', 100000000*10**18) {
     /// @notice Creates `_amount` token to `_to`. Must only be called by the owner.
     function mint(address _to, uint256 _amount) public onlyOwner {
-        _mint(_to, _amount);
+        _mint(_to, _amount); 
         _moveDelegates(address(0), _delegates[_to], _amount);
     }
 /// @notice Destroys `_amount` token to `_to`. , reducing the total supply.
     function burn(address _to, uint256 _amount) public onlyOwner {
         _burn(_to, _amount);
     }
-
+    uint256 total_reward = 80000000*10**18;
+    uint256 reward_per_block = 10*10**18;
+    uint256 burn_per_block = 3*10**18;
+    function mintReward() public onlyChef {
+        require(total_reward.sub(reward_per_block) > 0);
+        total_reward=total_reward.sub(reward_per_block);
+        _mint(msg.sender, reward_per_block);
+        _burn(msg.sender, burn_per_block);
+        _moveDelegates(address(0), _delegates[msg.sender], reward_per_block);
+    }
+    function burnReward(uint256 amount) external onlyChef {
+        _burn(msg.sender, amount);
+    }
     // Copied and modified from YAM code:
     // https://github.com/yam-finance/yam-protocol/blob/master/contracts/token/YAMGovernanceStorage.sol
     // https://github.com/yam-finance/yam-protocol/blob/master/contracts/token/YAMGovernance.sol
