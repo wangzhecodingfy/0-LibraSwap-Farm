@@ -1,0 +1,46 @@
+{
+	"compiler": {
+		"version": "0.6.12+commit.27d51765"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [],
+		"devdoc": {
+			"details": "Collection of functions related to the address type",
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"Taxable.sol": "Address"
+		},
+		"evmVersion": "istanbul",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"Taxable.sol": {
+			"keccak256": "0xec75274d5460e62aca701013bcf6d7731378aea18896120a3a6afea7ebe3b73e",
+			"license": "Unlicensed",
+			"urls": [
+				"bzz-raw://eed0602f6cd18e2e7d178cd70b49c279fc7150c631119d26a9d914676c420a92",
+				"dweb:/ipfs/QmVR7kPgxfZM9VhZEWzoEDxYrFyiANQcDXZMZH1GG8R8D6"
+			]
+		}
+	},
+	"version": 1
+}
