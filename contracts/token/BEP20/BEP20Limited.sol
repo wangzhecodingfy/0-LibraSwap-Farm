@@ -40,8 +40,9 @@ contract BEP20Limited is Context, IBEP20, Ownable {
 
     mapping(address => mapping(address => uint256)) private _allowances;
 
-    uint256 private _totalSupply;
-    uint256 private _maximumSupply;
+    uint256 internal _totalSupply;   // include burned tokens
+    uint256 internal _currentSupply;  
+    uint256 internal _maximumSupply;
     string private _name;
     string private _symbol;
     uint8 private _decimals;
@@ -61,10 +62,7 @@ contract BEP20Limited is Context, IBEP20, Ownable {
         _maximumSupply =maximumSupply;
         _decimals = 18;
     }
-    modifier checkSupply(uint256 amount) {
-        require(_totalSupply.add(amount) < _maximumSupply, 'BEP20: Maximum Supply reached');
-        _;
-    } 
+
     /**
      * @dev Returns the bep token owner.
      */
@@ -254,10 +252,11 @@ contract BEP20Limited is Context, IBEP20, Ownable {
      *
      * - `to` cannot be the zero address.
      */
-    function _mint(address account, uint256 amount) internal checkSupply(amount){
+    function _mint(address account, uint256 amount) internal{
         require(account != address(0), 'BEP20: mint to the zero address');
-        // require(_totalSupply.add(amount) < _maximumSupply, 'BEP20: Maximum Supply reached');
-        _totalSupply = _totalSupply.add(amount);
+        require(_totalSupply.add(amount) < _maximumSupply, 'BEP20: Maximum Supply reached');
+        _totalSupply = _totalSupply.add(amount);        
+        _currentSupply = _currentSupply.add(amount);
         _balances[account] = _balances[account].add(amount);
         emit Transfer(address(0), account, amount);
     }
@@ -275,9 +274,10 @@ contract BEP20Limited is Context, IBEP20, Ownable {
      */
     function _burn(address account, uint256 amount) internal {
         require(account != address(0), 'BEP20: burn from the zero address');
+        require(_currentSupply.add(amount) >= 0, 'BEP20: Amount to burn over current supply');
 
         _balances[account] = _balances[account].sub(amount, 'BEP20: burn amount exceeds balance');
-        _totalSupply = _totalSupply.sub(amount);
+        _currentSupply = _currentSupply.sub(amount);
         emit Transfer(account, address(0), amount);
     }
 
