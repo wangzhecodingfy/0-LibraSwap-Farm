@@ -10,13 +10,13 @@ import "./access/Ownable.sol";
 import "./LibToken.sol";
 
 interface IMigratorChef {
-    // Perform LP token migration from legacy UniswapV2 to libraSwap.
+    // Perform LP token migration from legacy UniswapV2 to libreSwap.
     // Take the current LP token address and return the new LP token address.
     // Migrator should have full access to the caller's LP token.
     // Return the new LP token address.
     //
     // XXX Migrator must have allowance access to UniswapV2 LP tokens.
-    // libraSwap must mint EXACTLY the same amount of libraSwap LP tokens or
+    // libreSwap must mint EXACTLY the same amount of libreSwap LP tokens or
     // else something bad will happen. Traditional UniswapV2 does not
     // do that so be careful!
     function migrate(IBEP20 token) external returns (IBEP20);
@@ -46,7 +46,7 @@ contract MasterChef is Ownable {
         uint256 allocPoint; // How many allocation points assigned to this pool. SUSHIs to distribute per block.
         uint256 lastRewardBlock; // Last block number that SUSHIs distribution occurs.
         uint256 accLibPerShare; // Accumulated LIBs per share, times 1e12. See below.
-        bool isLibraPair; // non-Libra LP will be charged 5% fee on withdraw
+        bool isLibrePair; // non-Libre LP will be charged 5% fee on withdraw
     }
     // The SUSHI TOKEN!
     LibToken public lib;
@@ -101,7 +101,7 @@ contract MasterChef is Ownable {
         uint256 _allocPoint,
         IBEP20 _lpToken,
         bool _withUpdate,
-        bool _isLibraPair
+        bool _isLibrePair
     ) public onlyOwner {
         if (_withUpdate) {
             massUpdatePools();
@@ -115,7 +115,7 @@ contract MasterChef is Ownable {
                 allocPoint: _allocPoint,
                 lastRewardBlock: lastRewardBlock,
                 accLibPerShare: 0,
-                isLibraPair: _isLibraPair
+                isLibrePair: _isLibrePair
             })
         );
     }
@@ -219,7 +219,7 @@ contract MasterChef is Ownable {
         //         user.amount.mul(pool.accLibPerShare).div(1e12).sub(
         //             user.rewardDebt
         //         );
-        //     safeLibraTransfer(msg.sender, pending);
+        //     safeLibreTransfer(msg.sender, pending);
         // }
         pool.lpToken.safeTransferFrom(
             address(msg.sender),
@@ -241,12 +241,12 @@ contract MasterChef is Ownable {
             user.amount.mul(pool.accLibPerShare).div(1e12).sub(
                 user.rewardDebt
             );
-        if(!pool.isLibraPair){// burn 5% of Libra reward
+        if(!pool.isLibrePair){// burn 5% of Libre reward
             lib.burnReward(pending.mul(5).div(100));
             pending = pending.mul(95).div(100);
         }
         user.amount = user.amount.sub(_amount);
-        safeLibraTransfer(msg.sender, pending);
+        safeLibreTransfer(msg.sender, pending);
         user.rewardDebt = user.amount.mul(pool.accLibPerShare).div(1e12);
         pool.lpToken.safeTransfer(address(msg.sender), _amount);
         emit Withdraw(msg.sender, _pid, _amount);
@@ -262,8 +262,8 @@ contract MasterChef is Ownable {
         user.rewardDebt = 0;
     }
 
-    // Safe sushi transfer function, just in case if rounding error causes pool to not have enough Libras.
-    function safeLibraTransfer(address _to, uint256 _amount) internal {
+    // Safe sushi transfer function, just in case if rounding error causes pool to not have enough Libres.
+    function safeLibreTransfer(address _to, uint256 _amount) internal {
         uint256 libBal = lib.balanceOf(address(this));
         if (_amount > libBal) {
             lib.transfer(_to, libBal);

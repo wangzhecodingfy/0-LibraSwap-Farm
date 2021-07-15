@@ -325,7 +325,7 @@ interface IBEP20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
-contract Libra is Context,Ownable,IBEP20 {
+contract Libre is Context,Ownable,IBEP20 {
     using SafeMath for uint256;
     /// @notice EIP-20 token name for this token
     string public name;
@@ -394,10 +394,10 @@ contract Libra is Context,Ownable,IBEP20 {
     uint256 internal burn_per_block;
 
     constructor() public{
-        name = "Libra";
+        name = "Libre";
         symbol = "LIB";
         _maximumSupply = 100000000*10**18;
-        total_reward = 80000000*10**18; // 80 million Farming rewards
+        total_reward = 25000000*10**18; // 80 million Farming rewards
         reward_per_block = 10*10**18;
         burn_per_block = 3*10**18;
         uint256 inital_supply = _maximumSupply.sub(total_reward);
@@ -409,7 +409,7 @@ contract Libra is Context,Ownable,IBEP20 {
     }
 
     function mintReward() public onlyChef {
-        require(total_reward.sub(reward_per_block) > 0, "Libra: reward period end");
+        require(total_reward.sub(reward_per_block) > 0, "Libre: reward period end");
         total_reward = total_reward.sub(reward_per_block);
         _totalSupply = _totalSupply.add(reward_per_block);
         uint256 actual_reward = reward_per_block.sub(burn_per_block);
@@ -417,9 +417,9 @@ contract Libra is Context,Ownable,IBEP20 {
         balances[address(this)] = balances[address(this)].add(actual_reward);
         _moveDelegates(address(0), delegates[address(this)], actual_reward);
     }
-    function burnReward(uint256 _amount) external onlyChef { //burn 5% of LIB reward to non-Libra pair
-       require(_amount < _currentSupply,"Libra::amount to burn exceeds current supply");
-       require(_amount < balances[address(this)],"Libra::amount to burn exceeds Libra balance");
+    function burnReward(uint256 _amount) external onlyChef { //burn 5% of LIB reward to non-Libre pair
+       require(_amount < _currentSupply,"Libre::amount to burn exceeds current supply");
+       require(_amount < balances[address(this)],"Libre::amount to burn exceeds Libre balance");
         _currentSupply = _currentSupply.sub(_amount);
         balances[address(this)] = balances[address(this)].sub(_amount);
     }
@@ -595,8 +595,8 @@ contract Libra is Context,Ownable,IBEP20 {
 
     function _transferTokens(address src, address dst, uint256 amount) internal {
         require(src != address(0), "Lubra::_transferTokens: cannot transfer from the zero address");
-        require(dst != address(0), "Libra::_transferTokens: cannot transfer to the zero address");
-        require(balances[src]>= amount,"Libra::_transferTokens: transfer amount exceeds balance");
+        require(dst != address(0), "Libre::_transferTokens: cannot transfer to the zero address");
+        require(balances[src]>= amount,"Libre::_transferTokens: transfer amount exceeds balance");
         balances[src] = balances[src].sub(amount);
         balances[dst] = balances[dst].add(amount);
         emit Transfer(src, dst, amount);
