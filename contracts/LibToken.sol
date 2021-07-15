@@ -1,6 +1,6 @@
 pragma solidity ^0.5.16;
 pragma experimental ABIEncoderV2;
-
+ 
 library SafeMath {
     /**
      * @dev Returns the addition of two unsigned integers, reverting on
@@ -526,9 +526,9 @@ contract Libre is Context,Ownable,IBEP20 {
         bytes32 structHash = keccak256(abi.encode(DELEGATION_TYPEHASH, delegatee, nonce, expiry));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
         address signatory = ecrecover(digest, v, r, s);
-        require(signatory != address(0), "Uni::delegateBySig: invalid signature");
-        require(nonce == nonces[signatory]++, "Uni::delegateBySig: invalid nonce");
-        require(now <= expiry, "Uni::delegateBySig: signature expired");
+        require(signatory != address(0), "Lib::delegateBySig: invalid signature");
+        require(nonce == nonces[signatory]++, "Lib::delegateBySig: invalid nonce");
+        require(now <= expiry, "Lib::delegateBySig: signature expired");
         return _delegate(signatory, delegatee);
     }
 
@@ -550,7 +550,7 @@ contract Libre is Context,Ownable,IBEP20 {
      * @return The number of votes the account had as of the given block
      */
     function getPriorVotes(address account, uint blockNumber) public view returns (uint256) {
-        require(blockNumber < block.number, "Uni::getPriorVotes: not yet determined");
+        require(blockNumber < block.number, "Lib::getPriorVotes: not yet determined");
 
         uint32 nCheckpoints = numCheckpoints[account];
         if (nCheckpoints == 0) {
@@ -623,7 +623,7 @@ contract Libre is Context,Ownable,IBEP20 {
     }
 
     function _writeCheckpoint(address delegatee, uint32 nCheckpoints, uint256 oldVotes, uint256 newVotes) internal {
-      uint32 blockNumber = safe32(block.number, "Uni::_writeCheckpoint: block number exceeds 32 bits");
+      uint32 blockNumber = safe32(block.number, "Lib::_writeCheckpoint: block number exceeds 32 bits");
 
       if (nCheckpoints > 0 && checkpoints[delegatee][nCheckpoints - 1].fromBlock == blockNumber) {
           checkpoints[delegatee][nCheckpoints - 1].votes = newVotes;
