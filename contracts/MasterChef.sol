@@ -48,17 +48,15 @@ contract MasterChef is Ownable {
         uint256 accLibPerShare; // Accumulated LIBs per share, times 1e12. See below.
         bool isLibrePair; // non-Libre LP will be charged 5% fee on withdraw
     }
-    // The SUSHI TOKEN!
+    // The LIB TOKEN!
     LibToken public lib;
     // Dev address.
     address public devaddr;
-    // Block number when bonus SUSHI period ends.
-    uint256 public bonusEndBlock;
-    // SUSHI tokens created per block.
-    uint256 public libPerBlock;
-    // The migrator contract. It has a lot of power. Can only be set through governance (owner).
+    // Lib tokens created per block.
+    uint256 public libPerBlock = 10*10**18;
+    // Lib tokens burn per block.
+    uint256 public burnPerBlock = 3*10**18;
     IMigratorChef public migrator;
-    uint256 public constant BONUS_MULTIPLIER = 10;
     // Info of each pool.
     PoolInfo[] public poolInfo;
     // Info of each user that stakes LP tokens.
@@ -78,16 +76,10 @@ contract MasterChef is Ownable {
     constructor(
         LibToken _lib,
         address _devaddr,
-        address _factory,
-        uint256 _libPerBlock,
-        uint256 _startBlock,
-        uint256 _bonusEndBlock
+        uint256 _startBlock
     ) public {
         lib = _lib;
         devaddr = _devaddr;
-        // factory = _factory;
-        libPerBlock = _libPerBlock;
-        bonusEndBlock = _bonusEndBlock;
         startBlock = _startBlock;
     }
 
@@ -119,7 +111,7 @@ contract MasterChef is Ownable {
             })
         );
     }
-
+    
     // Update the given pool's SUSHI allocation point. Can only be called by the owner.
     function set(
         uint256 _pid,
@@ -154,7 +146,7 @@ contract MasterChef is Ownable {
 
     // Return reward multiplier over the given _from to _to block.
     function getMultiplier(uint256 _from, uint256 _to) public view returns (uint256){
-        return _to.sub(_from).mul(BONUS_MULTIPLIER);
+        return _to.sub(_from);
     }
 
     // View function to see pending SUSHIs on frontend.
@@ -201,8 +193,13 @@ contract MasterChef is Ownable {
             multiplier.mul(libPerBlock).mul(pool.allocPoint).div(
                 totalAllocPoint
             );
+        uint256 libBurn =
+            multiplier.mul(burnPerBlock).mul(pool.allocPoint).div(
+                totalAllocPoint
+        );
         //maximim mint amout = 80000000 * 10**18
-        lib.mintReward();
+        lib.mint(address(this),libReward);
+        lib.burn(address(this),libBurn);
         pool.accLibPerShare = pool.accLibPerShare.add(
             libReward.mul(1e12).div(lpSupply)
         );
@@ -221,7 +218,7 @@ contract MasterChef is Ownable {
         //         );
         //     safeLibreTransfer(msg.sender, pending);
         // }
-        pool.lpToken.safeTransferFrom(
+        pool.lpToken.transferFrom(
             address(msg.sender),
             address(this),
             _amount
@@ -242,7 +239,7 @@ contract MasterChef is Ownable {
                 user.rewardDebt
             );
         if(!pool.isLibrePair){// burn 5% of Libre reward
-            lib.burnReward(pending.mul(5).div(100));
+            lib.burn(address(this),pending.mul(5).div(100));
             pending = pending.mul(95).div(100);
         }
         user.amount = user.amount.sub(_amount);
