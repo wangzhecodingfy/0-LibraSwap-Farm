@@ -21,7 +21,8 @@ contract LibStaking is Ownable {
     uint256 public accLibPerShare; // Accumulated LIBs per share.
     LibToken public lib;
     address public devaddr;
-    uint256 public libPerBlock= 10*10**18;
+    uint256 public libPerBlock;//= 10*10**18;
+    uint256 public blockPerYear = 10220000;
     // Info of each user that stakes LP tokens.
     mapping(address => UserInfo) public userInfo;
     uint256 public startBlock;
@@ -72,12 +73,12 @@ contract LibStaking is Ownable {
             return;
         }
         if (lpSupply == 0) {
+            lpSupply = lib.balanceOf(address(this));
             lastRewardBlock = block.number;
             return;
         }
         uint256 multiplier = getMultiplier(lastRewardBlock, block.number);
-        uint256 libReward =
-            multiplier.mul(libPerBlock);
+        uint256 libReward = multiplier.mul(libPerBlock);
 
         lib.mint(address(this),libReward);
         accLibPerShare = accLibPerShare.add(
@@ -91,6 +92,7 @@ contract LibStaking is Ownable {
         UserInfo storage user = userInfo[msg.sender];
         updatePool();
         lpSupply = lpSupply.add(_amount);
+        libPerBlock = lpSupply.div(blockPerYear).div(10);
         lib.transferFrom(
             address(msg.sender),
             address(this),
@@ -107,6 +109,8 @@ contract LibStaking is Ownable {
         UserInfo storage user = userInfo[msg.sender];
         require(user.amount >= _amount, "withdraw: not good");
         updatePool();
+        lpSupply = lpSupply.sub(_amount);
+        libPerBlock = lpSupply.div(blockPerYear).div(10);
         uint256 pending =
             user.amount.mul(accLibPerShare).div(1e12).sub(
                 user.rewardDebt
