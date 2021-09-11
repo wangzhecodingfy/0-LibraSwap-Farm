@@ -1,11 +1,11 @@
 
 pragma solidity 0.6.12;
 
-import "./token/BEP20/IBEP20.sol";
-import "./token/BEP20/SafeBEP20.sol";
-import "./utils/EnumerableSet.sol";
-import "./math/SafeMath.sol";
-import "./access/Ownable.sol";
+import "./IBEP20.sol";
+import "./SafeBEP20.sol";
+import "./EnumerableSet.sol";
+import "./SafeMath.sol";
+import "./Ownable.sol";
 import "./LibToken.sol";
 
 contract LibStaking is Ownable {
@@ -17,19 +17,17 @@ contract LibStaking is Ownable {
         uint256 rewardDebt; 
     }
     // Info of each pool.
-    struct PoolInfo {
-        IBEP20 lpToken; // Address of LP token contract.
-        uint256 lastRewardBlock; // Last block number that SUSHIs distribution occurs.
-        uint256 accLibPerShare; // Accumulated LIBs per share, times 1e12. See below.
-        uint256 lpSupply;
-    }
-    PoolInfo public pool;
+    uint256 public lastRewardBlock; // Last block number that SUSHIs distribution occurs.
+    uint256 public accLibPerShare; // Accumulated LIBs per share.
     LibToken public lib;
     address public devaddr;
     uint256 public libPerBlock;//= 10*10**18;
+    //1000000000000000000 978473581213
+    uint256 public blockPerYear = 10220000;
     // Info of each user that stakes LP tokens.
     mapping(address => UserInfo) public userInfo;
     uint256 public startBlock;
+    uint256 public lpSupply;
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
     event EmergencyWithdraw(
@@ -37,78 +35,74 @@ contract LibStaking is Ownable {
         uint256 amount
     );
     constructor(
-        LibToken _lib,
-        address _devaddr,
-        uint256 _startBlock
+        address _lib,
+        address _devaddr
     ) public {
-        lib = _lib;
+        lib = LibToken(_lib);
         devaddr = _devaddr;
-        startBlock = _startBlock;
-        pool =  PoolInfo({
-                lpToken: _lib,
-                lastRewardBlock: _startBlock,
-                accLibPerShare: 0,
-                lpSupply: 0
-            });
-    }
+        lastRewardBlock= 1;
+        accLibPerShare=0;
 
+    }
+    function setBlockPerYear(uint256 _blockPerYear)public onlyOwner{
+        blockPerYear = _blockPerYear;
+    }
     // Return reward multiplier over the given _from to _to block.
     function getMultiplier(uint256 _from, uint256 _to) public view returns (uint256){
         return _to.sub(_from);
     }
 
-    // View function to see pending SUSHIs on frontend.
+    // View function to see pending LIBs on frontend.
     function pendingLib(address _user)
         external
         view
         returns (uint256)
     {
         UserInfo storage user = userInfo[_user];
-        uint256 accLibPerShare = pool.accLibPerShare;
-        uint256 lpSupply = pool.lpSupply;
-        if (block.number > pool.lastRewardBlock && lpSupply != 0) {
-            uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
+        uint256 _accLibPerShare = accLibPerShare;
+        if (block.number > lastRewardBlock && lpSupply != 0) {
+            uint256 multiplier = getMultiplier(lastRewardBlock, block.number);
             uint256 libReward =  multiplier.mul(libPerBlock);
-            accLibPerShare = accLibPerShare.add(
-                libReward.mul(1e18).div(lpSupply)
+            _accLibPerShare = accLibPerShare.add(
+                libReward.mul(1e12).div(lpSupply)
             );
         }
-        return user.amount.mul(accLibPerShare).div(1e18).sub(user.rewardDebt);
+        return user.amount.mul(_accLibPerShare).div(1e12).sub(user.rewardDebt);
     }
 
     // Update reward variables of the given pool to be up-to-date.
     function updatePool() public {
-        if (block.number <= pool.lastRewardBlock) {
+        if (block.number <= lastRewardBlock) {
             return;
         }
-        pool.lpSupply = pool.lpToken.balanceOf(address(this));
-        if (pool.lpSupply == 0) {
-            pool.lastRewardBlock = block.number;
+        if (lpSupply == 0) {
+            lpSupply = lib.balanceOf(address(this));
+            lastRewardBlock = block.number;
             return;
         }
-        uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
-        uint256 libReward =
-            multiplier.mul(libPerBlock);
+        uint256 multiplier = getMultiplier(lastRewardBlock, block.number);
+        uint256 libReward = multiplier.mul(libPerBlock);
 
         lib.mint(address(this),libReward);
-        pool.accLibPerShare = pool.accLibPerShare.add(
-            libReward.mul(1e18).div(pool.lpSupply)
+        accLibPerShare = accLibPerShare.add(
+            libReward.mul(1e12).div(lpSupply)
         );
-        pool.lastRewardBlock = block.number;
+        lastRewardBlock = block.number;
     }
 
     // Deposit LP tokens to MasterChef for SUSHI allocation.
     function deposit( uint256 _amount) public {
         UserInfo storage user = userInfo[msg.sender];
         updatePool();
-        pool.lpToken.transferFrom(
+        lpSupply = lpSupply.add(_amount);
+        libPerBlock = lpSupply.div(blockPerYear).div(10);
+        lib.transferFrom(
             address(msg.sender),
             address(this),
             _amount
         );
         user.amount = user.amount.add(_amount);
-        user.rewardDebt = user.amount.mul(pool.accLibPerShare).div(1e18);
-        pool.lpSupply = pool.lpToken.balanceOf(address(this));
+        user.rewardDebt = user.amount.mul(accLibPerShare).div(1e12);
 
         emit Deposit(msg.sender, _amount);
     }
@@ -118,15 +112,17 @@ contract LibStaking is Ownable {
         UserInfo storage user = userInfo[msg.sender];
         require(user.amount >= _amount, "withdraw: not good");
         updatePool();
+        lpSupply = lpSupply.sub(_amount);
+        libPerBlock = lpSupply.div(blockPerYear).div(10);
         uint256 pending =
-            user.amount.mul(pool.accLibPerShare).div(1e18).sub(
+            user.amount.mul(accLibPerShare).div(1e12).sub(
                 user.rewardDebt
             );
         user.amount = user.amount.sub(_amount);
         safeLibreTransfer(msg.sender, pending);
-        user.rewardDebt = user.amount.mul(pool.accLibPerShare).div(1e18);
-        pool.lpToken.safeTransfer(address(msg.sender), _amount);
-        pool.lpSupply = pool.lpToken.balanceOf(address(this));
+        user.rewardDebt = user.amount.mul(accLibPerShare).div(1e12);
+        lib.transfer(address(msg.sender), _amount);
+
         emit Withdraw(msg.sender, _amount);
     }
 

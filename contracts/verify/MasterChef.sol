@@ -2,11 +2,11 @@
 
 pragma solidity 0.6.12;
 
-import "./token/BEP20/IBEP20.sol";
-import "./token/BEP20/SafeBEP20.sol";
-import "./utils/EnumerableSet.sol";
-import "./math/SafeMath.sol";
-import "./access/Ownable.sol";
+import "./IBEP20.sol";
+import "./SafeBEP20.sol";
+import "./EnumerableSet.sol";
+import "./SafeMath.sol";
+import "./Ownable.sol";
 import "./LibToken.sol";
 interface IUniswapRouter {
     function addLiquidity(
@@ -141,7 +141,6 @@ contract MasterChef is Ownable {
         uniRouter = IUniswapRouter(_uniRouter);
         devaddr = _devaddr;
         startBlock = _startBlock;
-        totalAllocPoint = totalAllocPoint.add(_allocPoint);
         poolInfo.push(
             PoolInfo({
                 lpToken: lib,

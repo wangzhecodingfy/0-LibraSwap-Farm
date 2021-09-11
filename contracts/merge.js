@@ -4,7 +4,7 @@ fs = require('fs');
 // Get the merged code as a string
 async function start(){
     const mergedCode = await merge("./MasterChef.sol");
-    fs.writeFile('Merge.sol', mergedCode, function (err) {
+    fs.writeFile('MasterChef_Verify.sol', mergedCode, function (err) {
         if (err) return console.log(err);
       });
 }

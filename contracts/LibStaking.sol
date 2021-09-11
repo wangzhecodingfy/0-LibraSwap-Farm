@@ -1,11 +1,11 @@
 
 pragma solidity 0.6.12;
 
-import "./token/BEP20/IBEP20.sol";
-import "./token/BEP20/SafeBEP20.sol";
-import "./utils/EnumerableSet.sol";
-import "./math/SafeMath.sol";
-import "./access/Ownable.sol";
+import "./IBEP20.sol";
+import "./SafeBEP20.sol";
+import "./EnumerableSet.sol";
+import "./SafeMath.sol";
+import "./Ownable.sol";
 import "./LibToken.sol";
 
 contract LibStaking is Ownable {
@@ -22,6 +22,7 @@ contract LibStaking is Ownable {
     LibToken public lib;
     address public devaddr;
     uint256 public libPerBlock;//= 10*10**18;
+    //1000000000000000000 978473581213
     uint256 public blockPerYear = 10220000;
     // Info of each user that stakes LP tokens.
     mapping(address => UserInfo) public userInfo;
@@ -43,7 +44,9 @@ contract LibStaking is Ownable {
         accLibPerShare=0;
 
     }
-
+    function setBlockPerYear(uint256 _blockPerYear)public onlyOwner{
+        blockPerYear = _blockPerYear;
+    }
     // Return reward multiplier over the given _from to _to block.
     function getMultiplier(uint256 _from, uint256 _to) public view returns (uint256){
         return _to.sub(_from);

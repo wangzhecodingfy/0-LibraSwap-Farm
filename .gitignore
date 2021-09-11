@@ -6,3 +6,10 @@ dist/
 coverage/
 
 thegraph/subgraph.yaml
+
+node_modules
+.env
+
+#Hardhat files
+cache
+artifacts

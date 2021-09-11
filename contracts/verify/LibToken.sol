@@ -2,12 +2,12 @@
 
 pragma solidity 0.6.12;
 
-import "./token/BEP20/BEP20.sol";
-import "./access/Ownable.sol";
+import "./BEP20.sol";
+import "./Ownable.sol";
 
 
 // SushiToken with Governance.
-contract LibToken is BEP20("Libre", "LBRE") {
+contract LibToken is BEP20("Libre", "LIB") {
     uint256 public _totalSupply;   // include burned tokens
     uint256 public _currentSupply;  // total circulation amount in the market (burned amount not included)
     uint256 public _maximumSupply;
@@ -130,9 +130,9 @@ contract LibToken is BEP20("Libre", "LBRE") {
         );
 
         address signatory = ecrecover(digest, v, r, s);
-        require(signatory != address(0), "LBRE::delegateBySig: invalid signature");
-        require(nonce == nonces[signatory]++, "LBRE::delegateBySig: invalid nonce");
-        require(now <= expiry, "LBRE::delegateBySig: signature expired");
+        require(signatory != address(0), "SUSHI::delegateBySig: invalid signature");
+        require(nonce == nonces[signatory]++, "SUSHI::delegateBySig: invalid nonce");
+        require(now <= expiry, "SUSHI::delegateBySig: signature expired");
         return _delegate(signatory, delegatee);
     }
 
@@ -162,7 +162,7 @@ contract LibToken is BEP20("Libre", "LBRE") {
         view
         returns (uint256)
     {
-        require(blockNumber < block.number, "LBRE::getPriorVotes: not yet determined");
+        require(blockNumber < block.number, "SUSHI::getPriorVotes: not yet determined");
 
         uint32 nCheckpoints = numCheckpoints[account];
         if (nCheckpoints == 0) {
@@ -235,7 +235,7 @@ contract LibToken is BEP20("Libre", "LBRE") {
     )
         internal
     {
-        uint32 blockNumber = safe32(block.number, "LBRE::_writeCheckpoint: block number exceeds 32 bits");
+        uint32 blockNumber = safe32(block.number, "SUSHI::_writeCheckpoint: block number exceeds 32 bits");
 
         if (nCheckpoints > 0 && checkpoints[delegatee][nCheckpoints - 1].fromBlock == blockNumber) {
             checkpoints[delegatee][nCheckpoints - 1].votes = newVotes;
