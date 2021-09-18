@@ -1454,6 +1454,7 @@ contract MasterChef is Ownable {
     // uint256 public burnPerBlock = 3*10**18;
     IMigratorChef public migrator;
     IUniswapRouter uniRouter;
+    IUniswapRouter libreRouter;
     // Info of each pool.
     PoolInfo[] public poolInfo;
     // Info of each user that stakes LP tokens.
@@ -1462,7 +1463,7 @@ contract MasterChef is Ownable {
     uint256 public totalAllocPoint = 0;
     // The block number when SUSHI mining starts.
     uint256 public startBlock;
-    event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
+    event Deposit(address indexed user, uint256 indexed pid, uint256 amount, uint256 token1Amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
     event EmergencyWithdraw(
         address indexed user,
@@ -1473,10 +1474,12 @@ contract MasterChef is Ownable {
     constructor(
         address[]memory _lib,
         address _devaddr,
+        address _libRouter,
         address _uniRouter,
         uint256 _startBlock
     ) public {
         lib = LibToken(_lib[0]);
+        libreRouter = IUniswapRouter(_libRouter);
         uniRouter = IUniswapRouter(_uniRouter);
         devaddr = _devaddr;
         startBlock = _startBlock;
@@ -1496,7 +1499,12 @@ contract MasterChef is Ownable {
     function poolLength() external view returns (uint256) {
         return poolInfo.length;
     }
-
+    function setLibRouter(address _libRouter)public onlyOwner{
+        libreRouter = IUniswapRouter(_libRouter);
+    }
+    function setUniRouter(address _uniRouter)public onlyOwner{
+        uniRouter = IUniswapRouter(_uniRouter);
+    }
     // Add a new lp to the pool. Can only be called by the owner.
     // XXX DO NOT add the same LP token more than once. Rewards will be messed up if you do.
     function add(
@@ -1517,6 +1525,8 @@ contract MasterChef is Ownable {
         
         token0.approve(address(uniRouter),10**64);
         token1.approve(address(uniRouter),10**64);
+        token0.approve(address(libreRouter),10**64);
+        token1.approve(address(libreRouter),10**64);
         _lpToken.approve(address(uniRouter),10**64);
         poolInfo.push(
             PoolInfo({
@@ -1637,7 +1647,7 @@ contract MasterChef is Ownable {
         }
         user.amount = user.amount.add(_amount);
         user.rewardDebt = user.amount.mul(pool.accLibPerShare).div(1e12);
-        emit Deposit(msg.sender, 0, _amount);
+        emit Deposit(msg.sender, 0, _amount, 0);
     }
     function unstake(uint256 _amount)public{
         PoolInfo storage pool = poolInfo[0];
@@ -1680,7 +1690,7 @@ contract MasterChef is Ownable {
             safeLibreTransfer(devaddr, fee);
         }
         uint256 lpBefore = pool.lpToken.balanceOf(address(this));
-        _swap(msg.sender, pool, _amount);
+        uint256 token1Amount=_swap(msg.sender, pool, _amount);
         uint256 lpAmount = pool.lpToken.balanceOf(address(this)).sub(lpBefore);
 
         uint256 fee = lpAmount.mul(2).div(100);
@@ -1688,9 +1698,9 @@ contract MasterChef is Ownable {
         pool.lpToken.transfer(devaddr,fee);
         user.amount = user.amount.add(lpAmount);
         user.rewardDebt = user.amount.mul(pool.accLibPerShare).div(1e12);
-        emit Deposit(msg.sender, _pid, _amount);
+        emit Deposit(msg.sender, _pid, _amount, token1Amount);
     }
-    function _swap(address _to, PoolInfo storage pool, uint256 _amount)internal{
+    function _swap(address _to, PoolInfo storage pool, uint256 _amount)internal returns (uint256){
         IBEP20 token0 = IBEP20(pool.lpPath[0]);
         IBEP20 token1 = IBEP20(pool.lpPath[1]);
         uint256 lpBefore = pool.lpToken.balanceOf(address(this));
@@ -1702,13 +1712,13 @@ contract MasterChef is Ownable {
         uniRouter.swapExactTokensForTokens(_amount.div(2), 0, pool.lpPath, address(this), block.timestamp);
         uint256 token0Amount = token0Before.sub(token0.balanceOf(address(this))); 
         uint256 token1Amount = token1.balanceOf(address(this)).sub(token1Before);
-        uniRouter.addLiquidity(address(token0), address(token1), token0Amount, token1Amount, 0 , 0, address(this), block.timestamp);
+        libreRouter.addLiquidity(address(token0), address(token1), token0Amount, token1Amount, 0 , 0, address(this), block.timestamp);
         uint256 token0leftOver = token0.balanceOf(address(this)).sub(token0init); 
         uint256 token1leftOver = token1.balanceOf(address(this)).sub(token1Before); 
         
         if(token0leftOver>0)token0.transfer(_to, token0leftOver);
         if(token1leftOver>0)token1.transfer(_to, token1leftOver);
-
+        return token1Amount;
     }
     // Withdraw LP tokens from MasterChef.
     function withdraw(uint256 _pid, uint256 _amount) public {
@@ -1727,7 +1737,7 @@ contract MasterChef is Ownable {
         uint256 fee = pending.mul(2).div(100);
         uint256 token0Before = token0.balanceOf(address(this));
         uint256 token1Before = token1.balanceOf(address(this));
-        uniRouter.removeLiquidity(address(token0), address(token1), _amount, 0 , 0, address(this), block.timestamp);
+        libreRouter.removeLiquidity(address(token0), address(token1), _amount, 0 , 0, address(this), block.timestamp);
         uint256 token0Amount = token0.balanceOf(address(this)).sub(token0Before);
         uint256 token1Amount = token1.balanceOf(address(this)).sub(token1Before);
 
@@ -1764,7 +1774,7 @@ contract MasterChef is Ownable {
             lib.transfer(_to, _amount);
         }
     }
-
+    
     // Update dev address by the previous dev.
     function dev(address _devaddr) public {
         require(msg.sender == devaddr, "dev: wut?");

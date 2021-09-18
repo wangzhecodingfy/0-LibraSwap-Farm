@@ -1,17 +1,5 @@
 pragma solidity 0.6.12;
 
-
-// SPDX-License-Identifier: GPL-3.0-or-later
-/*
- * @dev Provides information about the current execution context, including the
- * sender of the transaction and its data. While these are generally available
- * via msg.sender and msg.data, they should not be accessed in such a direct
- * manner, since when dealing with GSN meta-transactions the account sending and
- * paying for execution may not be the actual sender (as far as an application
- * is concerned).
- *
- * This contract is only required for intermediate, library-like contracts.
- */
 contract Context {
     // Empty internal constructor, to prevent people from mistakenly deploying
     // an instance of this contract, which should be used via inheritance.
@@ -27,19 +15,6 @@ contract Context {
     }
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
-/**
- * @dev Contract module which provides a basic access control mechanism, where
- * there is an account (an owner) that can be granted exclusive access to
- * specific functions.
- *
- * By default, the owner account will be the one that deploys the contract. This
- * can later be changed with {transferOwnership}.
- *
- * This module is used through inheritance. It will make available the modifier
- * `onlyOwner`, which can be applied to your functions to restrict their use to
- * the owner.
- */
 contract Ownable is Context {
     address private _owner;
     //  MasterChef contract that can mint the reward token
@@ -110,7 +85,6 @@ contract Ownable is Context {
     }
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
 interface IBEP20 {
     /**
      * @dev Returns the amount of tokens in existence.
@@ -206,20 +180,6 @@ interface IBEP20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
-// SPDX-License-Identifier: MIT
-/**
- * @dev Wrappers over Solidity's arithmetic operations with added overflow
- * checks.
- *
- * Arithmetic operations in Solidity wrap on overflow. This can easily result
- * in bugs, because programmers usually assume that an overflow raises an
- * error, which is the standard behavior in high level programming languages.
- * `SafeMath` restores this intuition by reverting the transaction when an
- * operation overflows.
- *
- * Using this library instead of the unchecked operations eliminates an entire
- * class of bugs, so it's recommended to use it always.
- */
 library SafeMath {
     /**
      * @dev Returns the addition of two unsigned integers, reverting on
@@ -393,7 +353,6 @@ library SafeMath {
     }
 }
 
-// SPDX-License-Identifier: MIT
 /**
  * @dev Collection of functions related to the address type
  */
@@ -552,7 +511,6 @@ library Address {
     }
 }
 
-// SPDX-License-Identifier: MIT
 /**
  * @dev Implementation of the {IBEP20} interface.
  *
@@ -861,8 +819,6 @@ contract BEP20 is Context, IBEP20, Ownable {
     }
 }
 
-// SPDX-License-Identifier: MIT
-// SushiToken with Governance.
 contract LibToken is BEP20("Libre", "LBRE") {
     uint256 public _totalSupply;   // include burned tokens
     uint256 public _currentSupply;  // total circulation amount in the market (burned amount not included)
