@@ -1,100 +1,7 @@
 pragma solidity 0.6.12;
 
 
-interface IBEP20 {
-    /**
-     * @dev Returns the amount of tokens in existence.
-     */
-    function totalSupply() external view returns (uint256);
 
-    /**
-     * @dev Returns the token decimals.
-     */
-    function decimals() external view returns (uint8);
-
-    /**
-     * @dev Returns the token symbol.
-     */
-    function symbol() external view returns (string memory);
-
-    /**
-     * @dev Returns the token name.
-     */
-    function name() external view returns (string memory);
-
-    /**
-     * @dev Returns the bep token owner.
-     */
-    function getOwner() external view returns (address);
-
-    /**
-     * @dev Returns the amount of tokens owned by `account`.
-     */
-    function balanceOf(address account) external view returns (uint256);
-
-    /**
-     * @dev Moves `amount` tokens from the caller's account to `recipient`.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transfer(address recipient, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Returns the remaining number of tokens that `spender` will be
-     * allowed to spend on behalf of `owner` through {transferFrom}. This is
-     * zero by default.
-     *
-     * This value changes when {approve} or {transferFrom} are called.
-     */
-    function allowance(address _owner, address spender) external view returns (uint256);
-
-    /**
-     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * IMPORTANT: Beware that changing an allowance with this method brings the risk
-     * that someone may use both the old and the new allowance by unfortunate
-     * transaction ordering. One possible solution to mitigate this race
-     * condition is to first reduce the spender's allowance to 0 and set the
-     * desired value afterwards:
-     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Moves `amount` tokens from `sender` to `recipient` using the
-     * allowance mechanism. `amount` is then deducted from the caller's
-     * allowance.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-
-    /**
-     * @dev Emitted when `value` tokens are moved from one account (`from`) to
-     * another (`to`).
-     *
-     * Note that `value` may be zero.
-     */
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
-    /**
-     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
-     * a call to {approve}. `value` is the new allowance.
-     */
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-}
 
 library SafeMath {
     /**
@@ -737,6 +644,101 @@ contract Context {
         this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
         return msg.data;
     }
+}
+
+interface IBEP20 {
+    /**
+     * @dev Returns the amount of tokens in existence.
+     */
+    function totalSupply() external view returns (uint256);
+
+    /**
+     * @dev Returns the token decimals.
+     */
+    function decimals() external view returns (uint8);
+
+    /**
+     * @dev Returns the token symbol.
+     */
+    function symbol() external view returns (string memory);
+
+    /**
+     * @dev Returns the token name.
+     */
+    function name() external view returns (string memory);
+
+    /**
+     * @dev Returns the bep token owner.
+     */
+    function getOwner() external view returns (address);
+
+    /**
+     * @dev Returns the amount of tokens owned by `account`.
+     */
+    function balanceOf(address account) external view returns (uint256);
+
+    /**
+     * @dev Moves `amount` tokens from the caller's account to `recipient`.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * Emits a {Transfer} event.
+     */
+    function transfer(address recipient, uint256 amount) external returns (bool);
+
+    /**
+     * @dev Returns the remaining number of tokens that `spender` will be
+     * allowed to spend on behalf of `owner` through {transferFrom}. This is
+     * zero by default.
+     *
+     * This value changes when {approve} or {transferFrom} are called.
+     */
+    function allowance(address _owner, address spender) external view returns (uint256);
+
+    /**
+     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * IMPORTANT: Beware that changing an allowance with this method brings the risk
+     * that someone may use both the old and the new allowance by unfortunate
+     * transaction ordering. One possible solution to mitigate this race
+     * condition is to first reduce the spender's allowance to 0 and set the
+     * desired value afterwards:
+     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+     *
+     * Emits an {Approval} event.
+     */
+    function approve(address spender, uint256 amount) external returns (bool);
+
+    /**
+     * @dev Moves `amount` tokens from `sender` to `recipient` using the
+     * allowance mechanism. `amount` is then deducted from the caller's
+     * allowance.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * Emits a {Transfer} event.
+     */
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) external returns (bool);
+
+    /**
+     * @dev Emitted when `value` tokens are moved from one account (`from`) to
+     * another (`to`).
+     *
+     * Note that `value` may be zero.
+     */
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    /**
+     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
+     * a call to {approve}. `value` is the new allowance.
+     */
+    event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
 contract Ownable is Context {
@@ -1403,6 +1405,66 @@ interface IUniswapRouter {
         returns (uint[] memory amounts);
 }
 
+interface IUniswapPair {
+    function decimals() external pure returns (uint8);
+    function totalSupply() external view returns (uint);
+    function balanceOf(address owner) external view returns (uint);
+    function MINIMUM_LIQUIDITY() external pure returns (uint);
+    function factory() external view returns (address);
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+    function price0CumulativeLast() external view returns (uint);
+    function price1CumulativeLast() external view returns (uint);
+    function kLast() external view returns (uint);
+
+}
+interface IUniswapFactory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+    function allPairs(uint) external view returns (address pair);
+    function allPairsLength() external view returns (uint);
+}
+
+contract APYCalcualte{
+    
+    using SafeMath for uint256;
+    address public USD;
+    address public LBRE;
+    IUniswapFactory public factory;
+    struct PoolInfo {
+        IBEP20 lpToken; // Address of LP token contract.
+        uint256 allocPoint; // How many allocation points assigned to this pool. SUSHIs to distribute per block.
+        uint256 lastRewardBlock; // Last block number that SUSHIs distribution occurs.
+        address[] lpPath;
+        uint256 accLibPerShare; // Accumulated LIBs per share, times 1e12. See below.
+        bool isLibrePair; // non-Libre LP will be charged 5% fee on withdraw
+    }
+    constructor(address _USD, address _LBRE, address _factory)public{
+        USD = _USD;
+        LBRE = _LBRE;
+        factory = IUniswapFactory(_factory);
+    }
+   function USDToToken0(address _token0)public view returns(uint256){
+        address token0USD = factory.getPair(_token0, USD);
+        IUniswapPair token0USDPair = IUniswapPair(token0USD);
+        IBEP20 usd = token0USDPair.token0() == USD ?IBEP20(token0USDPair.token0()) :IBEP20(token0USDPair.token1());
+        IBEP20 token0 = token0USDPair.token0() == USD ?IBEP20(token0USDPair.token1()) :IBEP20(token0USDPair.token0());
+        (uint112 reserve0, uint112 reserve1,) = token0USDPair.getReserves(); 
+        uint256 res0 = token0USDPair.token0() == USD ?uint256(reserve1) * (10**uint256(usd.decimals())) :uint256(reserve0) * (10**uint256(usd.decimals()));
+        uint256 resUSD = token0USDPair.token0() == USD ?uint256(reserve0) * (10**uint256(token0.decimals())) :uint256(reserve1) * (10**uint256(token0.decimals()));
+        return res0.mul(1e18).div(resUSD);
+    }
+    function LbreToUSD(uint256 input)public view returns(uint256){
+        address lbreUSD = factory.getPair(USD, LBRE);
+        IUniswapPair lbreUSDPair = IUniswapPair(lbreUSD);
+        IBEP20 usd = lbreUSDPair.token0() == USD ?IBEP20(lbreUSDPair.token0()) :IBEP20(lbreUSDPair.token1());
+        IBEP20 lbre = lbreUSDPair.token0() == USD ?IBEP20(lbreUSDPair.token1()) :IBEP20(lbreUSDPair.token0());
+        (uint112 reserve0, uint112 reserve1,) = lbreUSDPair.getReserves(); 
+        uint256 res0 = lbreUSDPair.token0() == USD ?uint256(reserve1) * (10**uint256(usd.decimals())) :uint256(reserve0) * (10**uint256(usd.decimals()));
+        uint256 resUSD = lbreUSDPair.token0() == USD ?uint256(reserve0) * (10**uint256(lbre.decimals())) :uint256(reserve1) * (10**uint256(lbre.decimals()));
+        return input.mul(resUSD).div(res0);
+    }
+}
 interface IMigratorChef {
     // Perform LP token migration from legacy UniswapV2 to libreSwap.
     // Take the current LP token address and return the new LP token address.
@@ -1453,8 +1515,9 @@ contract MasterChef is Ownable {
     // Lib tokens burn per block.
     // uint256 public burnPerBlock = 3*10**18;
     IMigratorChef public migrator;
-    IUniswapRouter uniRouter;
-    IUniswapRouter libreRouter;
+    IUniswapRouter public uniRouter;
+    IUniswapRouter public libreRouter;
+    APYCalcualte public APY;
     // Info of each pool.
     PoolInfo[] public poolInfo;
     // Info of each user that stakes LP tokens.
@@ -1463,6 +1526,7 @@ contract MasterChef is Ownable {
     uint256 public totalAllocPoint = 0;
     // The block number when SUSHI mining starts.
     uint256 public startBlock;
+    uint256 public totalStaked = 0;
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount, uint256 token1Amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
     event EmergencyWithdraw(
@@ -1470,7 +1534,6 @@ contract MasterChef is Ownable {
         uint256 indexed pid,
         uint256 amount
     );
-
     constructor(
         address[]memory _lib,
         address _devaddr,
@@ -1495,7 +1558,9 @@ contract MasterChef is Ownable {
             })
         );
     }
-
+    function APY_config(address _APY)public onlyOwner{
+        APY = APYCalcualte(_APY);
+    }
     function poolLength() external view returns (uint256) {
         return poolInfo.length;
     }
@@ -1528,6 +1593,7 @@ contract MasterChef is Ownable {
         token0.approve(address(libreRouter),10**64);
         token1.approve(address(libreRouter),10**64);
         _lpToken.approve(address(uniRouter),10**64);
+        _lpToken.approve(address(libreRouter),10**64);
         poolInfo.push(
             PoolInfo({
                 lpToken: _lpToken,
@@ -1631,7 +1697,7 @@ contract MasterChef is Ownable {
     }
     function stake(uint256 _amount) public{
         lib.transferFrom(msg.sender, address(this), _amount);
-        
+        totalStaked = totalStaked.add(_amount);
         PoolInfo storage pool = poolInfo[0];
         UserInfo storage user = userInfo[0][msg.sender];
         updatePool(0);
@@ -1652,7 +1718,7 @@ contract MasterChef is Ownable {
     function unstake(uint256 _amount)public{
         PoolInfo storage pool = poolInfo[0];
         UserInfo storage user = userInfo[0][msg.sender];
-
+        totalStaked = totalStaked.sub(_amount);
         require(user.amount >= _amount, "withdraw: not good");
         updatePool(0);
         uint256 pending =
@@ -1774,7 +1840,31 @@ contract MasterChef is Ownable {
             lib.transfer(_to, _amount);
         }
     }
-    
+
+    function APYC(uint8 _pid) public view returns(uint256 lpOutput, uint256 rewardPerBlock){
+        PoolInfo storage pool = poolInfo[_pid];
+        IBEP20 lp =  pool.lpToken;
+        IBEP20 token0 = IBEP20(pool.lpPath[0]);
+        uint256 allocPoint = pool.allocPoint;
+        
+        if(_pid != 0){
+            IUniswapPair pair = IUniswapPair(address(lp));
+            uint256 USDToToken0 = APY.USDToToken0(address(token0));
+            uint256 token0input = USDToToken0.div(2);
+            (uint112 reserve0, uint112 reserve1,) = pair.getReserves(); 
+            uint256 lpOutput = (pool.lpPath[0] == pair.token0()) ?token0input * pair.totalSupply() / uint256(reserve0) 
+            :token0input * pair.totalSupply() / uint256(reserve1);
+            uint256 rewardPerBlock = lpOutput.mul(libPerBlock).div(lp.balanceOf(address(this)));
+            rewardPerBlock = rewardPerBlock.mul(pool.allocPoint).div(totalAllocPoint);
+            rewardPerBlock = APY.LbreToUSD(rewardPerBlock);
+            return (lpOutput, rewardPerBlock);
+        }else{
+            uint256 libInput = 1e18;
+            rewardPerBlock = libInput.mul(libPerBlock).div(totalStaked);
+            rewardPerBlock = rewardPerBlock.mul(pool.allocPoint).div(totalAllocPoint);
+            return (0, rewardPerBlock);
+        }
+    }
     // Update dev address by the previous dev.
     function dev(address _devaddr) public {
         require(msg.sender == devaddr, "dev: wut?");
