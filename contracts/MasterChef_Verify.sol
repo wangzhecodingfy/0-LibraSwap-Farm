@@ -763,9 +763,7 @@ contract Ownable is Context {
     function owner() public view returns (address) {
         return _owner;
     }
-    function chef() public view returns (address) {
-        return _chef;
-    }
+
 
     /**
      * @dev Throws if called by any account other than the owner.
@@ -774,10 +772,7 @@ contract Ownable is Context {
         require(_owner == _msgSender(), 'Ownable: caller is not the owner');
         _;
     }
-    modifier onlyChef() {
-        require(_chef == _msgSender(), 'Ownable: caller is not the chef contract');
-        _;
-    }
+
     /**
      * @dev Leaves the contract without owner. It will not be possible to call
      * `onlyOwner` functions anymore. Can only be called by the current owner.
@@ -806,11 +801,11 @@ contract Ownable is Context {
         emit OwnershipTransferred(_owner, newOwner);
         _owner = newOwner;
     }
-    function setChef(address chef) public onlyOwner {
-        _chef = chef;
-    }
 }
-
+interface IWETH{
+     function transfer(address recipient, uint256 amount) external;
+     function withdraw(uint wad) external;
+}
 contract BEP20 is Context, IBEP20, Ownable {
     using SafeMath for uint256;
     using Address for address;
@@ -1095,259 +1090,14 @@ contract BEP20 is Context, IBEP20, Ownable {
     }
 }
 
-contract LibToken is BEP20("Libre", "LBRE") {
-    uint256 public _totalSupply;   // include burned tokens
-    uint256 public _currentSupply;  // total circulation amount in the market (burned amount not included)
-    uint256 public _maximumSupply;
-    constructor() public{
-        _maximumSupply = 100000000*10**18;
-        uint256 inital_supply = 75000000*10**18;
-        _totalSupply = _totalSupply.add(inital_supply);
-        _currentSupply = _currentSupply.add(inital_supply);
-        _mint(tx.origin, inital_supply);
-        _moveDelegates(address(0), _delegates[tx.origin], inital_supply);
-    }
-    
-    function mint(address _to, uint256 _amount) public onlyChef {
-        require(_totalSupply.add(_amount) <= _maximumSupply, "Libre: reward period end");
-        _totalSupply = _totalSupply.add(_amount);
-        _currentSupply = _currentSupply.add(_amount);
-        _mint(_to,_amount);
-        _moveDelegates(address(0), _delegates[_to], _amount);
-    }
-    
-    function burn(address _to, uint256 _amount) external onlyChef { //burn 5% of LIB reward to non-Libre pair
-       require(_amount < _currentSupply,"Libre::amount to burn exceeds current supply");
-       require(_amount < balanceOf(_to),"Libre::amount to burn exceeds Libre balance");
-        _currentSupply = _currentSupply.sub(_amount);
-        _burn(_to, _amount);
-    }
-    /// @notice A record of each accounts delegate
-    mapping (address => address) internal _delegates;
-
-    /// @notice A checkpoint for marking number of votes from a given block
-    struct Checkpoint {
-        uint32 fromBlock;
-        uint256 votes;
-    }
-
-    /// @notice A record of votes checkpoints for each account, by index
-    mapping (address => mapping (uint32 => Checkpoint)) public checkpoints;
-
-    /// @notice The number of checkpoints for each account
-    mapping (address => uint32) public numCheckpoints;
-
-    /// @notice The EIP-712 typehash for the contract's domain
-    bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
-
-    /// @notice The EIP-712 typehash for the delegation struct used by the contract
-    bytes32 public constant DELEGATION_TYPEHASH = keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
-
-    /// @notice A record of states for signing / validating signatures
-    mapping (address => uint) public nonces;
-
-      /// @notice An event thats emitted when an account changes its delegate
-    event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
-
-    /// @notice An event thats emitted when a delegate account's vote balance changes
-    event DelegateVotesChanged(address indexed delegate, uint previousBalance, uint newBalance);
-
-    /**
-     * @notice Delegate votes from `msg.sender` to `delegatee`
-     * @param delegator The address to get delegatee for
-     */
-    function delegates(address delegator)
-        external
-        view
-        returns (address)
-    {
-        return _delegates[delegator];
-    }
-
-   /**
-    * @notice Delegate votes from `msg.sender` to `delegatee`
-    * @param delegatee The address to delegate votes to
-    */
-    function delegate(address delegatee) external {
-        return _delegate(msg.sender, delegatee);
-    }
-
-    /**
-     * @notice Delegates votes from signatory to `delegatee`
-     * @param delegatee The address to delegate votes to
-     * @param nonce The contract state required to match the signature
-     * @param expiry The time at which to expire the signature
-     * @param v The recovery byte of the signature
-     * @param r Half of the ECDSA signature pair
-     * @param s Half of the ECDSA signature pair
-     */
-    function delegateBySig(
-        address delegatee,
-        uint nonce,
-        uint expiry,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    )
-        external
-    {
-        bytes32 domainSeparator = keccak256(
-            abi.encode(
-                DOMAIN_TYPEHASH,
-                keccak256(bytes(name())),
-                getChainId(),
-                address(this)
-            )
-        );
-
-        bytes32 structHash = keccak256(
-            abi.encode(
-                DELEGATION_TYPEHASH,
-                delegatee,
-                nonce,
-                expiry
-            )
-        );
-
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                domainSeparator,
-                structHash
-            )
-        );
-
-        address signatory = ecrecover(digest, v, r, s);
-        require(signatory != address(0), "LBRE::delegateBySig: invalid signature");
-        require(nonce == nonces[signatory]++, "LBRE::delegateBySig: invalid nonce");
-        require(now <= expiry, "LBRE::delegateBySig: signature expired");
-        return _delegate(signatory, delegatee);
-    }
-
-    /**
-     * @notice Gets the current votes balance for `account`
-     * @param account The address to get votes balance
-     * @return The number of current votes for `account`
-     */
-    function getCurrentVotes(address account)
-        external
-        view
-        returns (uint256)
-    {
-        uint32 nCheckpoints = numCheckpoints[account];
-        return nCheckpoints > 0 ? checkpoints[account][nCheckpoints - 1].votes : 0;
-    }
-
-    /**
-     * @notice Determine the prior number of votes for an account as of a block number
-     * @dev Block number must be a finalized block or else this function will revert to prevent misinformation.
-     * @param account The address of the account to check
-     * @param blockNumber The block number to get the vote balance at
-     * @return The number of votes the account had as of the given block
-     */
-    function getPriorVotes(address account, uint blockNumber)
-        external
-        view
-        returns (uint256)
-    {
-        require(blockNumber < block.number, "LBRE::getPriorVotes: not yet determined");
-
-        uint32 nCheckpoints = numCheckpoints[account];
-        if (nCheckpoints == 0) {
-            return 0;
-        }
-
-        // First check most recent balance
-        if (checkpoints[account][nCheckpoints - 1].fromBlock <= blockNumber) {
-            return checkpoints[account][nCheckpoints - 1].votes;
-        }
-
-        // Next check implicit zero balance
-        if (checkpoints[account][0].fromBlock > blockNumber) {
-            return 0;
-        }
-
-        uint32 lower = 0;
-        uint32 upper = nCheckpoints - 1;
-        while (upper > lower) {
-            uint32 center = upper - (upper - lower) / 2; // ceil, avoiding overflow
-            Checkpoint memory cp = checkpoints[account][center];
-            if (cp.fromBlock == blockNumber) {
-                return cp.votes;
-            } else if (cp.fromBlock < blockNumber) {
-                lower = center;
-            } else {
-                upper = center - 1;
-            }
-        }
-        return checkpoints[account][lower].votes;
-    }
-
-    function _delegate(address delegator, address delegatee)
-        internal
-    {
-        address currentDelegate = _delegates[delegator];
-        uint256 delegatorBalance = balanceOf(delegator); // balance of underlying SUSHIs (not scaled);
-        _delegates[delegator] = delegatee;
-
-        emit DelegateChanged(delegator, currentDelegate, delegatee);
-
-        _moveDelegates(currentDelegate, delegatee, delegatorBalance);
-    }
-
-    function _moveDelegates(address srcRep, address dstRep, uint256 amount) internal {
-        if (srcRep != dstRep && amount > 0) {
-            if (srcRep != address(0)) {
-                // decrease old representative
-                uint32 srcRepNum = numCheckpoints[srcRep];
-                uint256 srcRepOld = srcRepNum > 0 ? checkpoints[srcRep][srcRepNum - 1].votes : 0;
-                uint256 srcRepNew = srcRepOld.sub(amount);
-                _writeCheckpoint(srcRep, srcRepNum, srcRepOld, srcRepNew);
-            }
-
-            if (dstRep != address(0)) {
-                // increase new representative
-                uint32 dstRepNum = numCheckpoints[dstRep];
-                uint256 dstRepOld = dstRepNum > 0 ? checkpoints[dstRep][dstRepNum - 1].votes : 0;
-                uint256 dstRepNew = dstRepOld.add(amount);
-                _writeCheckpoint(dstRep, dstRepNum, dstRepOld, dstRepNew);
-            }
-        }
-    }
-
-    function _writeCheckpoint(
-        address delegatee,
-        uint32 nCheckpoints,
-        uint256 oldVotes,
-        uint256 newVotes
-    )
-        internal
-    {
-        uint32 blockNumber = safe32(block.number, "LBRE::_writeCheckpoint: block number exceeds 32 bits");
-
-        if (nCheckpoints > 0 && checkpoints[delegatee][nCheckpoints - 1].fromBlock == blockNumber) {
-            checkpoints[delegatee][nCheckpoints - 1].votes = newVotes;
-        } else {
-            checkpoints[delegatee][nCheckpoints] = Checkpoint(blockNumber, newVotes);
-            numCheckpoints[delegatee] = nCheckpoints + 1;
-        }
-
-        emit DelegateVotesChanged(delegatee, oldVotes, newVotes);
-    }
-
-    function safe32(uint n, string memory errorMessage) internal pure returns (uint32) {
-        require(n < 2**32, errorMessage);
-        return uint32(n);
-    }
-
-    function getChainId() internal pure returns (uint) {
-        uint256 chainId;
-        assembly { chainId := chainid() }
-        return chainId;
-    }
+interface ILibToken is IBEP20 {
+    function setChef(address chef) external;
+    function mint(address _to, uint256 _amount) external;
 }
 
 interface IUniswapRouter {
+    function WETH() external view returns (uint256);
+    
     function addLiquidity(
         address tokenA,
         address tokenB,
@@ -1424,7 +1174,67 @@ interface IUniswapFactory {
     function allPairs(uint) external view returns (address pair);
     function allPairsLength() external view returns (uint);
 }
+// SPDX-License-Identifier: MIT
 
+
+/**
+ * @dev Contract module that helps prevent reentrant calls to a function.
+ *
+ * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
+ * available, which can be applied to functions to make sure there are no nested
+ * (reentrant) calls to them.
+ *
+ * Note that because there is a single `nonReentrant` guard, functions marked as
+ * `nonReentrant` may not call one another. This can be worked around by making
+ * those functions `private`, and then adding `external` `nonReentrant` entry
+ * points to them.
+ *
+ * TIP: If you would like to learn more about reentrancy and alternative ways
+ * to protect against it, check out our blog post
+ * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
+ */
+abstract contract ReentrancyGuard {
+    // Booleans are more expensive than uint256 or any type that takes up a full
+    // word because each write operation emits an extra SLOAD to first read the
+    // slot's contents, replace the bits taken up by the boolean, and then write
+    // back. This is the compiler's defense against contract upgrades and
+    // pointer aliasing, and it cannot be disabled.
+
+    // The values being non-zero value makes deployment a bit more expensive,
+    // but in exchange the refund on every call to nonReentrant will be lower in
+    // amount. Since refunds are capped to a percentage of the total
+    // transaction's gas, it is best to keep them low in cases like this one, to
+    // increase the likelihood of the full refund coming into effect.
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    uint256 private _status;
+
+    constructor() public {
+        _status = _NOT_ENTERED;
+    }
+
+    /**
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * Calling a `nonReentrant` function from another `nonReentrant`
+     * function is not supported. It is possible to prevent this from happening
+     * by making the `nonReentrant` function external, and making it call a
+     * `private` function that does the actual work.
+     */
+    modifier nonReentrant() {
+        // On the first call to nonReentrant, _notEntered will be true
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+
+        // Any calls to nonReentrant after this point will fail
+        _status = _ENTERED;
+
+        _;
+
+        // By storing the original value once again, a refund is triggered (see
+        // https://eips.ethereum.org/EIPS/eip-2200)
+        _status = _NOT_ENTERED;
+    }
+}
 contract APYCalcualte{
     
     using SafeMath for uint256;
@@ -1437,7 +1247,7 @@ contract APYCalcualte{
         uint256 lastRewardBlock; // Last block number that SUSHIs distribution occurs.
         address[] lpPath;
         uint256 accLibPerShare; // Accumulated LIBs per share, times 1e12. See below.
-        bool isLibrePair; // non-Libre LP will be charged 5% fee on withdraw
+        bool isETHPair; // ETH pair needs to call swapExactTokenWithETH
     }
     constructor(address _USD, address _LBRE, address _factory)public{
         USD = _USD;
@@ -1478,7 +1288,7 @@ interface IMigratorChef {
     function migrate(IBEP20 token) external returns (IBEP20);
 }
 
-contract MasterChef is Ownable {
+contract MasterChef is Ownable,ReentrancyGuard {
     using SafeMath for uint256;
     using SafeBEP20 for IBEP20;
     // Info of each user.
@@ -1504,10 +1314,10 @@ contract MasterChef is Ownable {
         uint256 lastRewardBlock; // Last block number that SUSHIs distribution occurs.
         address[] lpPath;
         uint256 accLibPerShare; // Accumulated LIBs per share, times 1e12. See below.
-        bool isLibrePair; // non-Libre LP will be charged 5% fee on withdraw
+        bool isETHPair; // non-Libre LP will be charged 5% fee on withdraw
     }
     // The LIB TOKEN!
-    LibToken public lib;
+    ILibToken public lib;
     // Dev address.
     address public devaddr;
     // Lib tokens created per block.
@@ -1522,6 +1332,8 @@ contract MasterChef is Ownable {
     PoolInfo[] public poolInfo;
     // Info of each user that stakes LP tokens.
     mapping(uint256 => mapping(address => UserInfo)) public userInfo;
+    //set true after a new lp be added
+    mapping (address=>bool) public isPooled;
     // Total allocation poitns. Must be the sum of all allocation points in all pools.
     uint256 public totalAllocPoint = 0;
     // The block number when SUSHI mining starts.
@@ -1534,6 +1346,7 @@ contract MasterChef is Ownable {
         uint256 indexed pid,
         uint256 amount
     );
+    IWETH public WETH;
     constructor(
         address[]memory _lib,
         address _devaddr,
@@ -1541,33 +1354,38 @@ contract MasterChef is Ownable {
         address _uniRouter,
         uint256 _startBlock
     ) public {
-        lib = LibToken(_lib[0]);
+        require(_devaddr != address(0),"_devaddr cannot be 0");
+        lib = ILibToken(_lib[0]);
         libreRouter = IUniswapRouter(_libRouter);
         uniRouter = IUniswapRouter(_uniRouter);
         devaddr = _devaddr;
         startBlock = _startBlock;
         totalAllocPoint = totalAllocPoint.add(10);
+        WETH = IWETH(uniRouter.WETH());
         poolInfo.push(
             PoolInfo({
                 lpToken: lib,
                 allocPoint: 10,
                 lpPath:_lib,
-                lastRewardBlock: 0,
+                lastRewardBlock: startBlock,
                 accLibPerShare: 0,
-                isLibrePair: true
+                isETHPair: false
             })
         );
     }
-    function APY_config(address _APY)public onlyOwner{
+    function APY_config(address _APY)external onlyOwner{
+        require(_APY != address(0),"_APY cannot be 0");
         APY = APYCalcualte(_APY);
     }
     function poolLength() external view returns (uint256) {
         return poolInfo.length;
     }
-    function setLibRouter(address _libRouter)public onlyOwner{
+    function setLibRouter(address _libRouter)external onlyOwner{
+        require(_libRouter != address(0),"_libRouter cannot be 0");
         libreRouter = IUniswapRouter(_libRouter);
     }
-    function setUniRouter(address _uniRouter)public onlyOwner{
+    function setUniRouter(address _uniRouter)external onlyOwner{
+        require(_uniRouter != address(0),"_uniRouter cannot be 0");
         uniRouter = IUniswapRouter(_uniRouter);
     }
     // Add a new lp to the pool. Can only be called by the owner.
@@ -1577,8 +1395,10 @@ contract MasterChef is Ownable {
         IBEP20 _lpToken,
         address[] memory _lpPath,
         bool _withUpdate,
-        bool _isLibrePair
+        bool _isETHPair
     ) public onlyOwner {
+        require(!isPooled[address(_lpToken)]);
+        isPooled[address(_lpToken)] = true;
         if (_withUpdate) {
             massUpdatePools();
         }
@@ -1587,7 +1407,8 @@ contract MasterChef is Ownable {
         totalAllocPoint = totalAllocPoint.add(_allocPoint);
         IBEP20 token0 = IBEP20(_lpPath[0]);
         IBEP20 token1 = IBEP20(_lpPath[1]);
-        
+        IUniswapPair pair = IUniswapPair(address(_lpToken));
+        require((pair.token0() == _lpPath[0] && pair.token1() == _lpPath[1]) || (pair.token0() == _lpPath[1] && pair.token1() == _lpPath[0]), "pair does not exist");
         token0.approve(address(uniRouter),10**64);
         token1.approve(address(uniRouter),10**64);
         token0.approve(address(libreRouter),10**64);
@@ -1601,7 +1422,7 @@ contract MasterChef is Ownable {
                 lpPath:_lpPath,
                 lastRewardBlock: lastRewardBlock,
                 accLibPerShare: 0,
-                isLibrePair: _isLibrePair
+                isETHPair: _isETHPair
             })
         );
     }
@@ -1611,7 +1432,7 @@ contract MasterChef is Ownable {
         uint256 _pid,
         uint256 _allocPoint,
         bool _withUpdate
-    ) public onlyOwner {
+    ) public onlyOwner validatePoolByPid(_pid){
         if (_withUpdate) {
             massUpdatePools();
         }
@@ -1622,31 +1443,32 @@ contract MasterChef is Ownable {
     }
 
     // Set the migrator contract. Can only be called by the owner.
-    function setMigrator(IMigratorChef _migrator) public onlyOwner {
-        migrator = _migrator;
-    }
+    // function setMigrator(IMigratorChef _migrator) public onlyOwner {
+    //     migrator = _migrator;
+    // }
 
     // Migrate lp token to another lp contract. Can be called by anyone. We trust that migrator contract is good.
-    function migrate(uint256 _pid) public {
-        require(address(migrator) != address(0), "migrate: no migrator");
-        PoolInfo storage pool = poolInfo[_pid];
-        IBEP20 lpToken = pool.lpToken;
-        uint256 bal = lpToken.balanceOf(address(this));
-        lpToken.safeApprove(address(migrator), bal);
-        IBEP20 newLpToken = migrator.migrate(lpToken);
-        require(bal == newLpToken.balanceOf(address(this)), "migrate: bad");
-        pool.lpToken = newLpToken;
-    }
+    // function migrate(uint256 _pid) public {
+    //     require(address(migrator) != address(0), "migrate: no migrator");
+    //     PoolInfo storage pool = poolInfo[_pid];
+    //     IBEP20 lpToken = pool.lpToken;
+    //     uint256 bal = lpToken.balanceOf(address(this));
+    //     lpToken.safeApprove(address(migrator), bal);
+    //     IBEP20 newLpToken = migrator.migrate(lpToken);
+    //     require(bal == newLpToken.balanceOf(address(this)), "migrate: bad");
+    //     pool.lpToken = newLpToken;
+    // }
 
     // Return reward multiplier over the given _from to _to block.
     function getMultiplier(uint256 _from, uint256 _to) public view returns (uint256){
+        require(_from >= startBlock, "_from can not less than startBlock!");
         return _to.sub(_from);
     }
 
     // View function to see pending SUSHIs on frontend.
     function pendingLib(uint256 _pid, address _user)
         external
-        view
+        view validatePoolByPid(_pid)
         returns (uint256)
     {
         PoolInfo storage pool = poolInfo[_pid];
@@ -1672,12 +1494,12 @@ contract MasterChef is Ownable {
     }
 
     // Update reward variables of the given pool to be up-to-date.
-    function updatePool(uint256 _pid) public {
+    function updatePool(uint256 _pid) public validatePoolByPid(_pid){
         PoolInfo storage pool = poolInfo[_pid];
         if (block.number <= pool.lastRewardBlock) {
             return;
         }
-        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
+        uint256 lpSupply = _pid == 0 ?totalStaked :pool.lpToken.balanceOf(address(this));
         if (lpSupply == 0) {
             pool.lastRewardBlock = block.number;
             return;
@@ -1688,14 +1510,13 @@ contract MasterChef is Ownable {
                 totalAllocPoint
             );
 
-        //maximim mint amout = 80000000 * 10**18
         lib.mint(address(this),libReward);
         pool.accLibPerShare = pool.accLibPerShare.add(
             libReward.mul(1e12).div(lpSupply)
         );
         pool.lastRewardBlock = block.number;
     }
-    function stake(uint256 _amount) public{
+    function stake(uint256 _amount) public nonReentrant{
         lib.transferFrom(msg.sender, address(this), _amount);
         totalStaked = totalStaked.add(_amount);
         PoolInfo storage pool = poolInfo[0];
@@ -1715,7 +1536,7 @@ contract MasterChef is Ownable {
         user.rewardDebt = user.amount.mul(pool.accLibPerShare).div(1e12);
         emit Deposit(msg.sender, 0, _amount, 0);
     }
-    function unstake(uint256 _amount)public{
+    function unstake(uint256 _amount)public nonReentrant{
         PoolInfo storage pool = poolInfo[0];
         UserInfo storage user = userInfo[0][msg.sender];
         totalStaked = totalStaked.sub(_amount);
@@ -1740,7 +1561,7 @@ contract MasterChef is Ownable {
         emit Withdraw(msg.sender, 0, _amount);
     }
     // Deposit LP tokens to MasterChef for SUSHI allocation.
-    function deposit(uint256 _pid, uint256 _amount) public {
+    function deposit(uint256 _pid, uint256 _amount) public validatePoolByPid(_pid) nonReentrant payable{
         require(_pid>0,"pool 0 is for staking");
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
@@ -1756,6 +1577,7 @@ contract MasterChef is Ownable {
             safeLibreTransfer(devaddr, fee);
         }
         uint256 lpBefore = pool.lpToken.balanceOf(address(this));
+        if(pool.isETHPair) _amount = msg.value;
         uint256 token1Amount=_swap(msg.sender, pool, _amount);
         uint256 lpAmount = pool.lpToken.balanceOf(address(this)).sub(lpBefore);
 
@@ -1771,23 +1593,26 @@ contract MasterChef is Ownable {
         IBEP20 token1 = IBEP20(pool.lpPath[1]);
         uint256 lpBefore = pool.lpToken.balanceOf(address(this));
         uint256 token0init = token0.balanceOf(address(this));
-        token0.transferFrom(_to, address(this), _amount);
-
+        if(!pool.isETHPair)token0.transferFrom(_to, address(this), _amount);
+    
         uint256 token0Before = token0init.add(_amount);
         uint256 token1Before = token1.balanceOf(address(this));
-        uniRouter.swapExactTokensForTokens(_amount.div(2), 0, pool.lpPath, address(this), block.timestamp);
-        uint256 token0Amount = token0Before.sub(token0.balanceOf(address(this))); 
+        if(pool.isETHPair) uniRouter.swapExactETHForTokens.value(_amount.div(2))(0, pool.lpPath, address(this), block.timestamp);
+        else uniRouter.swapExactTokensForTokens(_amount.div(2), 0, pool.lpPath, address(this), block.timestamp);
+
+        uint256 token0Amount = pool.isETHPair ?_amount.div(2) :token0Before.sub(token0.balanceOf(address(this))); 
         uint256 token1Amount = token1.balanceOf(address(this)).sub(token1Before);
-        libreRouter.addLiquidity(address(token0), address(token1), token0Amount, token1Amount, 0 , 0, address(this), block.timestamp);
+        if(pool.isETHPair) libreRouter.addLiquidityETH.value(token0Amount)(address(token1),token1Amount,0,0,address(this), block.timestamp);
+        else libreRouter.addLiquidity(address(token0), address(token1), token0Amount, token1Amount, 0 , 0, address(this), block.timestamp);
         uint256 token0leftOver = token0.balanceOf(address(this)).sub(token0init); 
         uint256 token1leftOver = token1.balanceOf(address(this)).sub(token1Before); 
         
-        if(token0leftOver>0)token0.transfer(_to, token0leftOver);
+        if(token0leftOver>0 && !pool.isETHPair)token0.transfer(_to, token0leftOver);
         if(token1leftOver>0)token1.transfer(_to, token1leftOver);
         return token1Amount;
     }
     // Withdraw LP tokens from MasterChef.
-    function withdraw(uint256 _pid, uint256 _amount) public {
+    function withdraw(uint256 _pid, uint256 _amount) public validatePoolByPid(_pid) nonReentrant payable{
         require(_pid>0,"pool 0 is for staking");
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
@@ -1803,34 +1628,27 @@ contract MasterChef is Ownable {
         uint256 fee = pending.mul(2).div(100);
         uint256 token0Before = token0.balanceOf(address(this));
         uint256 token1Before = token1.balanceOf(address(this));
+
         libreRouter.removeLiquidity(address(token0), address(token1), _amount, 0 , 0, address(this), block.timestamp);
         uint256 token0Amount = token0.balanceOf(address(this)).sub(token0Before);
         uint256 token1Amount = token1.balanceOf(address(this)).sub(token1Before);
-
-        // if(!pool.isLibrePair){// burn 5% of Libre reward
-        //     lib.burn(address(this),pending.mul(5).div(100));
-        //     pending = pending.mul(95).div(100);
-        // }
+        uint256 bal = token0.balanceOf(address(this));
         user.amount = user.amount.sub(_amount);
         safeLibreTransfer(msg.sender, pending.sub(fee));
         safeLibreTransfer(devaddr, fee);
         user.rewardDebt = user.amount.mul(pool.accLibPerShare).div(1e12);
-        // pool.lpToken.safeTransfer(address(msg.sender), _amount);
-        token0.transfer(address(msg.sender),token0Amount);
+        if(pool.isETHPair){
+            WETH.withdraw(uint(token0Amount));
+            msg.sender.transfer(token0Amount);
+            // token0.transfer(address(msg.sender),token0Amount);
+        }
+        else token0.transfer(address(msg.sender),token0Amount);
         token1.transfer(address(msg.sender),token1Amount);
         emit Withdraw(msg.sender, _pid, _amount);
     }
 
-    // Withdraw without caring about rewards. EMERGENCY ONLY.
-    function emergencyWithdraw(uint256 _pid) public {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][msg.sender];
-        pool.lpToken.safeTransfer(address(msg.sender), user.amount);
-        emit EmergencyWithdraw(msg.sender, _pid, user.amount);
-        user.amount = 0;
-        user.rewardDebt = 0;
-    }
-
+    receive() external payable {}
+    
     // Safe sushi transfer function, just in case if rounding error causes pool to not have enough Libres.
     function safeLibreTransfer(address _to, uint256 _amount) internal {
         uint256 libBal = lib.balanceOf(address(this));
@@ -1864,6 +1682,24 @@ contract MasterChef is Ownable {
             rewardPerBlock = rewardPerBlock.mul(pool.allocPoint).div(totalAllocPoint);
             return (0, rewardPerBlock);
         }
+    }
+        // Withdraw without caring about rewards. EMERGENCY ONLY.
+    function emergencyWithdraw(uint256 _pid) public nonReentrant{
+        PoolInfo storage pool = poolInfo[_pid];
+        UserInfo storage user = userInfo[_pid][msg.sender];
+        if(_pid>0) pool.lpToken.safeTransfer(address(msg.sender), user.amount);
+        else{
+            safeLibreTransfer(address(msg.sender),user.amount);
+            totalStaked = totalStaked.sub(user.amount);
+        }
+        emit EmergencyWithdraw(msg.sender, _pid, user.amount);
+        
+        user.amount = 0;
+        user.rewardDebt = 0;
+    }
+    modifier validatePoolByPid(uint256 _pid){
+        require(_pid<poolInfo.length, "Pool does not exist");
+        _;
     }
     // Update dev address by the previous dev.
     function dev(address _devaddr) public {

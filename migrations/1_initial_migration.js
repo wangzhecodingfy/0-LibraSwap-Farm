@@ -1,5 +1,5 @@
-const Migrations = artifacts.require("SafeMoon");
+const Migrations = artifacts.require("LibToken");
 
 module.exports = function (deployer) {
-  deployer.deploy(Migrations);
+//   deployer.deploy(Migrations);
 };

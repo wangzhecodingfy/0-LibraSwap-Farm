@@ -21,7 +21,7 @@ contract Ownable is Context {
     address private _chef;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
+    event SetChef(address newChef);
     /**
      * @dev Initializes the contract setting the deployer as the initial owner.
      */
@@ -37,9 +37,9 @@ contract Ownable is Context {
     function owner() public view returns (address) {
         return _owner;
     }
-    function chef() public view returns (address) {
-        return _chef;
-    }
+    // function chef() public view returns (address) {
+    //     return _chef;
+    // }
 
     /**
      * @dev Throws if called by any account other than the owner.
@@ -82,6 +82,7 @@ contract Ownable is Context {
     }
     function setChef(address chef) public onlyOwner {
         _chef = chef;
+        emit SetChef(chef);
     }
 }
 
@@ -613,7 +614,7 @@ contract BEP20 is Context, IBEP20, Ownable {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public override returns (bool) {
+    function transfer(address recipient, uint256 amount) public override virtual returns (bool) {
         _transfer(_msgSender(), recipient, amount);
         return true;
     }
@@ -653,7 +654,7 @@ contract BEP20 is Context, IBEP20, Ownable {
         address sender,
         address recipient,
         uint256 amount
-    ) public override returns (bool) {
+    ) public override virtual returns (bool) {
         _transfer(sender, recipient, amount);
         _approve(
             sender,
@@ -675,7 +676,7 @@ contract BEP20 is Context, IBEP20, Ownable {
      *
      * - `spender` cannot be the zero address.
      */
-    function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
+    function increaseAllowance(address spender, uint256 addedValue) external returns (bool) {
         _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
         return true;
     }
@@ -694,7 +695,7 @@ contract BEP20 is Context, IBEP20, Ownable {
      * - `spender` must have allowance for the caller of at least
      * `subtractedValue`.
      */
-    function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
+    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool) {
         _approve(
             _msgSender(),
             spender,
@@ -810,7 +811,7 @@ contract BEP20 is Context, IBEP20, Ownable {
      * See {_burn} and {_approve}.
      */
     function _burnFrom(address account, uint256 amount) internal {
-        _burn(account, amount);
+        _burn(account, amount); 
         _approve(
             account,
             _msgSender(),
@@ -819,14 +820,13 @@ contract BEP20 is Context, IBEP20, Ownable {
     }
 }
 
-contract LibToken is BEP20("Libre", "LBRE") {
+contract LibToken is BEP20("Libre", "LIBRE") {
     uint256 public _totalSupply;   // include burned tokens
     uint256 public _currentSupply;  // total circulation amount in the market (burned amount not included)
     uint256 public _maximumSupply;
     constructor() public{
         _maximumSupply = 100000000*10**18;
         uint256 inital_supply = 75000000*10**18;
-        _totalSupply = _totalSupply.add(inital_supply);
         _currentSupply = _currentSupply.add(inital_supply);
         _mint(tx.origin, inital_supply);
         _moveDelegates(address(0), _delegates[tx.origin], inital_supply);
@@ -834,7 +834,6 @@ contract LibToken is BEP20("Libre", "LBRE") {
     
     function mint(address _to, uint256 _amount) public onlyChef {
         require(_totalSupply.add(_amount) <= _maximumSupply, "Libre: reward period end");
-        _totalSupply = _totalSupply.add(_amount);
         _currentSupply = _currentSupply.add(_amount);
         _mint(_to,_amount);
         _moveDelegates(address(0), _delegates[_to], _amount);
@@ -845,6 +844,17 @@ contract LibToken is BEP20("Libre", "LBRE") {
        require(_amount < balanceOf(_to),"Libre::amount to burn exceeds Libre balance");
         _currentSupply = _currentSupply.sub(_amount);
         _burn(_to, _amount);
+        _moveDelegates(_delegates[_msgSender()], address(0), _amount);
+    }
+    function transfer(address recipient, uint256 amount)public override returns(bool){
+        super.transfer(recipient, amount);
+        _moveDelegates(_delegates[_msgSender()],_delegates[recipient], amount);
+        return true;
+    }
+    function transferFrom(address sender, address recipient, uint256 amount)public override returns(bool){
+        super.transferFrom(sender, recipient, amount);
+        _moveDelegates(_delegates[sender],_delegates[recipient], amount);
+        return true;
     }
     /// @notice A record of each accounts delegate
     mapping (address => address) internal _delegates;
