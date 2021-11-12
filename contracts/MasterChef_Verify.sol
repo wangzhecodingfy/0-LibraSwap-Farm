@@ -1,8 +1,5 @@
 pragma solidity 0.6.12;
 
-
-
-
 library SafeMath {
     /**
      * @dev Returns the addition of two unsigned integers, reverting on
@@ -175,7 +172,6 @@ library SafeMath {
         }
     }
 }
-
 library Address {
     /**
      * @dev Returns true if `account` is a contract.
@@ -330,7 +326,6 @@ library Address {
         }
     }
 }
-
 library SafeBEP20 {
     using SafeMath for uint256;
     using Address for address;
@@ -415,7 +410,6 @@ library SafeBEP20 {
         }
     }
 }
-
 library EnumerableSet {
     // To implement this library for multiple types with as little code
     // repetition as possible, we write it in terms of a generic Set type with
@@ -630,7 +624,6 @@ library EnumerableSet {
         return uint256(_at(set._inner, index));
     }
 }
-
 contract Context {
     // Empty internal constructor, to prevent people from mistakenly deploying
     // an instance of this contract, which should be used via inheritance.
@@ -645,7 +638,6 @@ contract Context {
         return msg.data;
     }
 }
-
 interface IBEP20 {
     /**
      * @dev Returns the amount of tokens in existence.
@@ -740,7 +732,6 @@ interface IBEP20 {
      */
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
-
 contract Ownable is Context {
     address private _owner;
     //  MasterChef contract that can mint the reward token
@@ -1089,12 +1080,10 @@ contract BEP20 is Context, IBEP20, Ownable {
         );
     }
 }
-
 interface ILibToken is IBEP20 {
     function setChef(address chef) external;
     function mint(address _to, uint256 _amount) external;
 }
-
 interface IUniswapRouter {
     function WETH() external view returns (uint256);
     
@@ -1153,8 +1142,13 @@ interface IUniswapRouter {
     function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline)
         external
         returns (uint[] memory amounts);
-}
+    function quote(uint amountA, uint reserveA, uint reserveB) external pure returns (uint amountB);
+    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut);
+    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) external pure returns (uint amountIn);
+    function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
+    function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts);
 
+}
 interface IUniswapPair {
     function decimals() external pure returns (uint8);
     function totalSupply() external view returns (uint);
@@ -1175,8 +1169,6 @@ interface IUniswapFactory {
     function allPairsLength() external view returns (uint);
 }
 // SPDX-License-Identifier: MIT
-
-
 /**
  * @dev Contract module that helps prevent reentrant calls to a function.
  *
@@ -1241,18 +1233,13 @@ contract APYCalcualte{
     address public USD;
     address public LBRE;
     IUniswapFactory public factory;
-    struct PoolInfo {
-        IBEP20 lpToken; // Address of LP token contract.
-        uint256 allocPoint; // How many allocation points assigned to this pool. SUSHIs to distribute per block.
-        uint256 lastRewardBlock; // Last block number that SUSHIs distribution occurs.
-        address[] lpPath;
-        uint256 accLibPerShare; // Accumulated LIBs per share, times 1e12. See below.
-        bool isETHPair; // ETH pair needs to call swapExactTokenWithETH
-    }
-    constructor(address _USD, address _LBRE, address _factory)public{
+    MasterChef public chef;
+
+    constructor(address _USD, address _LBRE, address _factory, address payable _chef)public{
         USD = _USD;
         LBRE = _LBRE;
         factory = IUniswapFactory(_factory);
+        chef = MasterChef(_chef);
     }
    function USDToToken0(address _token0)public view returns(uint256){
         address token0USD = factory.getPair(_token0, USD);
@@ -1274,20 +1261,34 @@ contract APYCalcualte{
         uint256 resUSD = lbreUSDPair.token0() == USD ?uint256(reserve0) * (10**uint256(lbre.decimals())) :uint256(reserve1) * (10**uint256(lbre.decimals()));
         return input.mul(resUSD).div(res0);
     }
+    function APYC(uint8 _pid) public view returns(uint256 lpOutput, uint256 rewardPerBlock){
+        // PoolInfo storage pool = chef.poolInfo[_pid];
+        (IBEP20 lp,address[]memory lpPath,uint256 allocPoint) = chef.forAPYC(_pid);
+        // IBEP20 lp =  chef.getPoolLP(_pid);
+        // address[] memory lpPath = chef.getPath(_pid);
+        // uint256 allocPoint = chef.getAllocPoint(_pid);
+        uint256 totalAllocPoint = chef.totalAllocPoint(); 
+        uint256 libPerBlock = chef.libPerBlock();
+        IBEP20 token0 = IBEP20(lpPath[0]);
+        if(_pid != 0){
+            IUniswapPair pair = IUniswapPair(address(lp));
+            uint256 USDToToken0 = address(token0) == USD ?1e18 :USDToToken0(address(token0));
+            uint256 token0input = USDToToken0.div(2);
+            (uint112 reserve0, uint112 reserve1,) = pair.getReserves(); 
+            uint256 lpOutput = (lpPath[0] == pair.token0()) ?token0input * pair.totalSupply() / uint256(reserve0) 
+            :token0input * pair.totalSupply() / uint256(reserve1);
+            uint256 rewardPerBlock = lpOutput.mul(libPerBlock).div(lp.balanceOf(address(chef)));
+            rewardPerBlock = rewardPerBlock.mul(allocPoint).div(totalAllocPoint);
+            rewardPerBlock = LbreToUSD(rewardPerBlock);
+            return (lpOutput, rewardPerBlock);
+        }else{
+            uint256 libInput = 1e18;
+            rewardPerBlock = libInput.mul(libPerBlock).div(chef.totalStaked());
+            rewardPerBlock = rewardPerBlock.mul(allocPoint).div(totalAllocPoint);
+            return (0, rewardPerBlock);
+        }
+    }
 }
-interface IMigratorChef {
-    // Perform LP token migration from legacy UniswapV2 to libreSwap.
-    // Take the current LP token address and return the new LP token address.
-    // Migrator should have full access to the caller's LP token.
-    // Return the new LP token address.
-    //
-    // XXX Migrator must have allowance access to UniswapV2 LP tokens.
-    // libreSwap must mint EXACTLY the same amount of libreSwap LP tokens or
-    // else something bad will happen. Traditional UniswapV2 does not
-    // do that so be careful!
-    function migrate(IBEP20 token) external returns (IBEP20);
-}
-
 contract MasterChef is Ownable,ReentrancyGuard {
     using SafeMath for uint256;
     using SafeBEP20 for IBEP20;
@@ -1324,10 +1325,8 @@ contract MasterChef is Ownable,ReentrancyGuard {
     uint256 public libPerBlock = 1*10**18;
     // Lib tokens burn per block.
     // uint256 public burnPerBlock = 3*10**18;
-    IMigratorChef public migrator;
     IUniswapRouter public uniRouter;
     IUniswapRouter public libreRouter;
-    APYCalcualte public APY;
     // Info of each pool.
     PoolInfo[] public poolInfo;
     // Info of each user that stakes LP tokens.
@@ -1373,21 +1372,31 @@ contract MasterChef is Ownable,ReentrancyGuard {
             })
         );
     }
-    function APY_config(address _APY)external onlyOwner{
-        require(_APY != address(0),"_APY cannot be 0");
-        APY = APYCalcualte(_APY);
+    // function APY_config(address _APY)external onlyOwner{
+    //     require(_APY != address(0),"_APY cannot be 0");
+    //     APY = APYCalcualte(_APY);
+    // }
+    // function poolLength() external view returns (uint256) {
+    //     return poolInfo.length;
+    // }
+
+    function setRouter(address _router, uint8 index)external onlyOwner{
+        require(_router != address(0),"_uniRouter cannot be 0");
+        if(index == 0) uniRouter = IUniswapRouter(_router);
+        else if(index == 1)libreRouter = IUniswapRouter(_router);
     }
-    function poolLength() external view returns (uint256) {
-        return poolInfo.length;
+    function forAPYC(uint8 _pid)external view returns(IBEP20, address[]memory, uint256){
+        return (poolInfo[_pid].lpToken, poolInfo[_pid].lpPath, poolInfo[_pid].allocPoint);
     }
-    function setLibRouter(address _libRouter)external onlyOwner{
-        require(_libRouter != address(0),"_libRouter cannot be 0");
-        libreRouter = IUniswapRouter(_libRouter);
-    }
-    function setUniRouter(address _uniRouter)external onlyOwner{
-        require(_uniRouter != address(0),"_uniRouter cannot be 0");
-        uniRouter = IUniswapRouter(_uniRouter);
-    }
+    // function getPoolLP(uint8 _pid)external view returns(IBEP20){
+    //     return poolInfo[_pid].lpToken;
+    // }
+    // function getPath(uint8 _pid)external view returns(address[] memory){
+    //     return poolInfo[_pid].lpPath;
+    // }
+    // function getAllocPoint(uint8 _pid)external view returns(uint256){
+    //     return poolInfo[_pid].allocPoint;
+    // }
     // Add a new lp to the pool. Can only be called by the owner.
     // XXX DO NOT add the same LP token more than once. Rewards will be messed up if you do.
     function add(
@@ -1396,7 +1405,7 @@ contract MasterChef is Ownable,ReentrancyGuard {
         address[] memory _lpPath,
         bool _withUpdate,
         bool _isETHPair
-    ) public onlyOwner {
+    ) external onlyOwner {
         require(!isPooled[address(_lpToken)]);
         isPooled[address(_lpToken)] = true;
         if (_withUpdate) {
@@ -1409,12 +1418,12 @@ contract MasterChef is Ownable,ReentrancyGuard {
         IBEP20 token1 = IBEP20(_lpPath[1]);
         IUniswapPair pair = IUniswapPair(address(_lpToken));
         require((pair.token0() == _lpPath[0] && pair.token1() == _lpPath[1]) || (pair.token0() == _lpPath[1] && pair.token1() == _lpPath[0]), "pair does not exist");
-        token0.approve(address(uniRouter),10**64);
-        token1.approve(address(uniRouter),10**64);
-        token0.approve(address(libreRouter),10**64);
-        token1.approve(address(libreRouter),10**64);
-        _lpToken.approve(address(uniRouter),10**64);
-        _lpToken.approve(address(libreRouter),10**64);
+        token0.approve(address(uniRouter),2**95);
+        token1.approve(address(uniRouter),2**95);
+        token0.approve(address(libreRouter),2**95);
+        token1.approve(address(libreRouter),2**95);
+        _lpToken.approve(address(uniRouter),2**95);
+        _lpToken.approve(address(libreRouter),2**95);
         poolInfo.push(
             PoolInfo({
                 lpToken: _lpToken,
@@ -1432,7 +1441,7 @@ contract MasterChef is Ownable,ReentrancyGuard {
         uint256 _pid,
         uint256 _allocPoint,
         bool _withUpdate
-    ) public onlyOwner validatePoolByPid(_pid){
+    ) external onlyOwner validatePoolByPid(_pid){
         if (_withUpdate) {
             massUpdatePools();
         }
@@ -1460,7 +1469,7 @@ contract MasterChef is Ownable,ReentrancyGuard {
     // }
 
     // Return reward multiplier over the given _from to _to block.
-    function getMultiplier(uint256 _from, uint256 _to) public view returns (uint256){
+    function getMultiplier(uint256 _from, uint256 _to) internal view returns (uint256){
         require(_from >= startBlock, "_from can not less than startBlock!");
         return _to.sub(_from);
     }
@@ -1518,10 +1527,10 @@ contract MasterChef is Ownable,ReentrancyGuard {
     }
     function stake(uint256 _amount) public nonReentrant{
         lib.transferFrom(msg.sender, address(this), _amount);
+        updatePool(0);
         totalStaked = totalStaked.add(_amount);
         PoolInfo storage pool = poolInfo[0];
         UserInfo storage user = userInfo[0][msg.sender];
-        updatePool(0);
         if (user.amount > 0) {
             uint256 pending =
                 user.amount.mul(pool.accLibPerShare).div(1e12).sub(
@@ -1539,9 +1548,9 @@ contract MasterChef is Ownable,ReentrancyGuard {
     function unstake(uint256 _amount)public nonReentrant{
         PoolInfo storage pool = poolInfo[0];
         UserInfo storage user = userInfo[0][msg.sender];
+        updatePool(0);
         totalStaked = totalStaked.sub(_amount);
         require(user.amount >= _amount, "withdraw: not good");
-        updatePool(0);
         uint256 pending =
             user.amount.mul(pool.accLibPerShare).div(1e12).sub(
                 user.rewardDebt
@@ -1561,8 +1570,10 @@ contract MasterChef is Ownable,ReentrancyGuard {
         emit Withdraw(msg.sender, 0, _amount);
     }
     // Deposit LP tokens to MasterChef for SUSHI allocation.
-    function deposit(uint256 _pid, uint256 _amount) public validatePoolByPid(_pid) nonReentrant payable{
+    function deposit(uint256 _pid, uint256 _amount, uint8 _slippage) public validatePoolByPid(_pid) nonReentrant payable{
         require(_pid>0,"pool 0 is for staking");
+        require(_slippage<=20,"slippage range not greater than 2%");
+        // require(_slippage<0,"slippage value must");
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
         updatePool(_pid);
@@ -1578,7 +1589,7 @@ contract MasterChef is Ownable,ReentrancyGuard {
         }
         uint256 lpBefore = pool.lpToken.balanceOf(address(this));
         if(pool.isETHPair) _amount = msg.value;
-        uint256 token1Amount=_swap(msg.sender, pool, _amount);
+        uint256 token1Amount=_swap(msg.sender, pool, _amount,_slippage);
         uint256 lpAmount = pool.lpToken.balanceOf(address(this)).sub(lpBefore);
 
         uint256 fee = lpAmount.mul(2).div(100);
@@ -1588,28 +1599,36 @@ contract MasterChef is Ownable,ReentrancyGuard {
         user.rewardDebt = user.amount.mul(pool.accLibPerShare).div(1e12);
         emit Deposit(msg.sender, _pid, _amount, token1Amount);
     }
-    function _swap(address _to, PoolInfo storage pool, uint256 _amount)internal returns (uint256){
+    function _swap(address payable _to, PoolInfo storage pool, uint256 _amount, uint8 _slippage)private returns (uint256){
         IBEP20 token0 = IBEP20(pool.lpPath[0]);
         IBEP20 token1 = IBEP20(pool.lpPath[1]);
-        uint256 lpBefore = pool.lpToken.balanceOf(address(this));
-        uint256 token0init = token0.balanceOf(address(this));
+        uint256 token0init = pool.isETHPair?address(this).balance :token0.balanceOf(address(this));
         if(!pool.isETHPair)token0.transferFrom(_to, address(this), _amount);
     
-        uint256 token0Before = token0init.add(_amount);
         uint256 token1Before = token1.balanceOf(address(this));
-        if(pool.isETHPair) uniRouter.swapExactETHForTokens.value(_amount.div(2))(0, pool.lpPath, address(this), block.timestamp);
-        else uniRouter.swapExactTokensForTokens(_amount.div(2), 0, pool.lpPath, address(this), block.timestamp);
 
-        uint256 token0Amount = pool.isETHPair ?_amount.div(2) :token0Before.sub(token0.balanceOf(address(this))); 
+        uint256 minAmount = _slippageCalculate(token0, token1, _amount.div(2), _slippage);
+        if(pool.isETHPair) uniRouter.swapExactETHForTokens{value: _amount.div(2)}(minAmount, pool.lpPath, address(this), block.timestamp);
+        else uniRouter.swapExactTokensForTokens(_amount.div(2), minAmount, pool.lpPath, address(this), block.timestamp);
+       
+        uint256 token0Amount = pool.isETHPair ?_amount.div(2) :token0init.add(_amount).sub(token0.balanceOf(address(this))); 
         uint256 token1Amount = token1.balanceOf(address(this)).sub(token1Before);
-        if(pool.isETHPair) libreRouter.addLiquidityETH.value(token0Amount)(address(token1),token1Amount,0,0,address(this), block.timestamp);
+        if(pool.isETHPair) libreRouter.addLiquidityETH{value: token0Amount}(address(token1),token1Amount,0,0,address(this), block.timestamp);
         else libreRouter.addLiquidity(address(token0), address(token1), token0Amount, token1Amount, 0 , 0, address(this), block.timestamp);
-        uint256 token0leftOver = token0.balanceOf(address(this)).sub(token0init); 
+        uint256 token0leftOver = pool.isETHPair?address(this).balance.sub(token0init.sub(_amount)):token0.balanceOf(address(this)).sub(token0init); 
         uint256 token1leftOver = token1.balanceOf(address(this)).sub(token1Before); 
         
         if(token0leftOver>0 && !pool.isETHPair)token0.transfer(_to, token0leftOver);
+        else if(token0leftOver>0 && pool.isETHPair)_to.transfer(token0leftOver);
         if(token1leftOver>0)token1.transfer(_to, token1leftOver);
         return token1Amount;
+    }
+    function _slippageCalculate(IBEP20 token0, IBEP20 token1, uint256 input, uint8 _slippage)private view returns(uint256){
+        address[] memory t = new address[](2);
+        t[0] = address(token0);
+        t[1] = address(token1);
+        // uint256 exceptedAmount = uniRouter.getAmountsOut(input, t)[1].mul(1000-_slippage).div(1000);
+        return uniRouter.getAmountsOut(input, t)[1].mul(1000-_slippage).div(1000);
     }
     // Withdraw LP tokens from MasterChef.
     function withdraw(uint256 _pid, uint256 _amount) public validatePoolByPid(_pid) nonReentrant payable{
@@ -1632,7 +1651,6 @@ contract MasterChef is Ownable,ReentrancyGuard {
         libreRouter.removeLiquidity(address(token0), address(token1), _amount, 0 , 0, address(this), block.timestamp);
         uint256 token0Amount = token0.balanceOf(address(this)).sub(token0Before);
         uint256 token1Amount = token1.balanceOf(address(this)).sub(token1Before);
-        uint256 bal = token0.balanceOf(address(this));
         user.amount = user.amount.sub(_amount);
         safeLibreTransfer(msg.sender, pending.sub(fee));
         safeLibreTransfer(devaddr, fee);
@@ -1659,30 +1677,29 @@ contract MasterChef is Ownable,ReentrancyGuard {
         }
     }
 
-    function APYC(uint8 _pid) public view returns(uint256 lpOutput, uint256 rewardPerBlock){
-        PoolInfo storage pool = poolInfo[_pid];
-        IBEP20 lp =  pool.lpToken;
-        IBEP20 token0 = IBEP20(pool.lpPath[0]);
-        uint256 allocPoint = pool.allocPoint;
-        
-        if(_pid != 0){
-            IUniswapPair pair = IUniswapPair(address(lp));
-            uint256 USDToToken0 = APY.USDToToken0(address(token0));
-            uint256 token0input = USDToToken0.div(2);
-            (uint112 reserve0, uint112 reserve1,) = pair.getReserves(); 
-            uint256 lpOutput = (pool.lpPath[0] == pair.token0()) ?token0input * pair.totalSupply() / uint256(reserve0) 
-            :token0input * pair.totalSupply() / uint256(reserve1);
-            uint256 rewardPerBlock = lpOutput.mul(libPerBlock).div(lp.balanceOf(address(this)));
-            rewardPerBlock = rewardPerBlock.mul(pool.allocPoint).div(totalAllocPoint);
-            rewardPerBlock = APY.LbreToUSD(rewardPerBlock);
-            return (lpOutput, rewardPerBlock);
-        }else{
-            uint256 libInput = 1e18;
-            rewardPerBlock = libInput.mul(libPerBlock).div(totalStaked);
-            rewardPerBlock = rewardPerBlock.mul(pool.allocPoint).div(totalAllocPoint);
-            return (0, rewardPerBlock);
-        }
-    }
+    // function APYC(uint8 _pid) public view returns(uint256 lpOutput, uint256 rewardPerBlock){
+    //     PoolInfo storage pool = poolInfo[_pid];
+    //     IBEP20 lp =  pool.lpToken;
+    //     IBEP20 token0 = IBEP20(pool.lpPath[0]);
+
+    //     if(_pid != 0){
+    //         IUniswapPair pair = IUniswapPair(address(lp));
+    //         uint256 USDToToken0 = APY.USDToToken0(address(token0));
+    //         uint256 token0input = USDToToken0.div(2);
+    //         (uint112 reserve0, uint112 reserve1,) = pair.getReserves(); 
+    //         uint256 lpOutput = (pool.lpPath[0] == pair.token0()) ?token0input * pair.totalSupply() / uint256(reserve0) 
+    //         :token0input * pair.totalSupply() / uint256(reserve1);
+    //         uint256 rewardPerBlock = lpOutput.mul(libPerBlock).div(lp.balanceOf(address(this)));
+    //         rewardPerBlock = rewardPerBlock.mul(pool.allocPoint).div(totalAllocPoint);
+    //         rewardPerBlock = APY.LbreToUSD(rewardPerBlock);
+    //         return (lpOutput, rewardPerBlock);
+    //     }else{
+    //         uint256 libInput = 1e18;
+    //         rewardPerBlock = libInput.mul(libPerBlock).div(totalStaked);
+    //         rewardPerBlock = rewardPerBlock.mul(pool.allocPoint).div(totalAllocPoint);
+    //         return (0, rewardPerBlock);
+    //     }
+    // }
         // Withdraw without caring about rewards. EMERGENCY ONLY.
     function emergencyWithdraw(uint256 _pid) public nonReentrant{
         PoolInfo storage pool = poolInfo[_pid];

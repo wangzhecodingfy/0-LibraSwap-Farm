@@ -37,9 +37,9 @@ contract Ownable is Context {
     function owner() public view returns (address) {
         return _owner;
     }
-    // function chef() public view returns (address) {
-    //     return _chef;
-    // }
+    function chef() public view returns (address) {
+        return _chef;
+    }
 
     /**
      * @dev Throws if called by any account other than the owner.
@@ -356,6 +356,7 @@ library SafeMath {
 
 /**
  * @dev Collection of functions related to the address type
+ * 
  */
 library Address {
     /**
@@ -821,30 +822,27 @@ contract BEP20 is Context, IBEP20, Ownable {
 }
 
 contract LibToken is BEP20("Libre", "LIBRE") {
-    uint256 public _totalSupply;   // include burned tokens
-    uint256 public _currentSupply;  // total circulation amount in the market (burned amount not included)
-    uint256 public _maximumSupply;
+    uint256 public _mintReward;   // include burned tokens
+    uint256 public _totalReward;
     constructor() public{
-        _maximumSupply = 100000000*10**18;
-        uint256 inital_supply = 75000000*10**18;
-        _currentSupply = _currentSupply.add(inital_supply);
+        _totalReward = 13000000*10**18;
+        uint256 inital_supply = 1000000*10**18;
         _mint(tx.origin, inital_supply);
         _moveDelegates(address(0), _delegates[tx.origin], inital_supply);
     }
     
     function mint(address _to, uint256 _amount) public onlyChef {
-        require(_totalSupply.add(_amount) <= _maximumSupply, "Libre: reward period end");
-        _currentSupply = _currentSupply.add(_amount);
+        require(_mintReward.add(_amount) <= _totalReward, "Libre: reward period end");
+        _mintReward = _mintReward.add(_amount);
         _mint(_to,_amount);
         _moveDelegates(address(0), _delegates[_to], _amount);
     }
     
-    function burn(address _to, uint256 _amount) external onlyChef { //burn 5% of LIB reward to non-Libre pair
-       require(_amount < _currentSupply,"Libre::amount to burn exceeds current supply");
+    function burn(address _to, uint256 _amount) external onlyChef {
+       require(_amount < totalSupply(),"Libre::amount to burn exceeds current supply");
        require(_amount < balanceOf(_to),"Libre::amount to burn exceeds Libre balance");
-        _currentSupply = _currentSupply.sub(_amount);
         _burn(_to, _amount);
-        _moveDelegates(_delegates[_msgSender()], address(0), _amount);
+        _moveDelegates(_delegates[_to], address(0), _amount);
     }
     function transfer(address recipient, uint256 amount)public override returns(bool){
         super.transfer(recipient, amount);
@@ -1080,3 +1078,5 @@ contract LibToken is BEP20("Libre", "LIBRE") {
         return chainId;
     }
 }
+
+
